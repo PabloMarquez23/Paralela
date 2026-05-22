@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres-local:
+    image: postgres:15-alpine
+    container_name: upsglam_db_local
+    environment:
+      POSTGRES_USER: pablo_admin
+      POSTGRES_PASSWORD: tusuperclave
+      POSTGRES_DB: upsglam_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
