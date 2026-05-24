@@ -4,6 +4,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient; // <-- Importante
+import org.springframework.data.domain.Persistable;     // <-- Importante
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.relational.core.mapping.Column;
 import java.time.LocalDateTime;
@@ -12,11 +14,11 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(value = "processing_history", schema = "public") // 🎯 Forzamos el esquema público de Supabase
-public class GpuMetric {
+@Table(value = "processing_history", schema = "public")
+public class GpuMetric implements Persistable<UUID> { // 🎯 Implementamos Persistable
     
     @Id
-    private UUID id; // Manejado como UUID nativo cloud
+    private UUID id;
     
     @Column("user_id")
     private UUID userId;
@@ -55,5 +57,22 @@ public class GpuMetric {
     private Double kernelTimeMs;
     
     private String status;
+    
+    @Column("created_at")
     private LocalDateTime createdAt;
+
+    // 🎯 TRUCO R2DBC: Le indicamos dinámicamente si es nuevo o no
+    @Transient 
+    private boolean isNew = true;
+
+    @Override
+    public UUID getId() {
+        return this.id;
+    }
+
+    @Override
+    @Transient
+    public boolean isNew() {
+        return this.isNew;
+    }
 }
