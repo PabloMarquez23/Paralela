@@ -7,6 +7,5 @@ import java.util.UUID;
 
 @Repository
 public interface GpuMetricRepository extends ReactiveCrudRepository<GpuMetric, UUID> {
-    // Cambiamos el tipo de ID de Integer a UUID para que machee perfectamente 
-    // con la clave primaria que acabamos de ver registrada en Supabase Cloud.
+    // Repositorio reactivo acoplado a UUID para telemetría paralela de PostgreSQL
 }

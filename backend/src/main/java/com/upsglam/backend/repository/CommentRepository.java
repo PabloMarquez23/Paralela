@@ -11,9 +11,10 @@ import java.util.UUID;
 public interface CommentRepository extends ReactiveCrudRepository<Comment, UUID> {
 
     /**
-     * 🎯 Busca los comentarios emparejándolos relacionalmente con el username del alumno.
+     * 🎯 Trae los comentarios haciendo JOIN con perfiles para rellenar el campo transient 'username'
      */
-    @Query("SELECT c.*, p.username FROM public.comments c " +
+    @Query("SELECT c.id, c.post_id, c.user_id, c.content, c.created_at, p.username " +
+           "FROM public.comments c " +
            "JOIN public.profiles p ON c.user_id = p.id " +
            "WHERE c.post_id = :postId " +
            "ORDER BY c.created_at ASC")

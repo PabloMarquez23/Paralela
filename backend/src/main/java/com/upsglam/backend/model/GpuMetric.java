@@ -4,8 +4,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient; // <-- Importante
-import org.springframework.data.domain.Persistable;     // <-- Importante
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.relational.core.mapping.Column;
 import java.time.LocalDateTime;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(value = "processing_history", schema = "public")
-public class GpuMetric implements Persistable<UUID> { // 🎯 Implementamos Persistable
+public class GpuMetric implements Persistable<UUID> {
     
     @Id
     private UUID id;
@@ -61,7 +61,6 @@ public class GpuMetric implements Persistable<UUID> { // 🎯 Implementamos Pers
     @Column("created_at")
     private LocalDateTime createdAt;
 
-    // 🎯 TRUCO R2DBC: Le indicamos dinámicamente si es nuevo o no
     @Transient 
     private boolean isNew = true;
 

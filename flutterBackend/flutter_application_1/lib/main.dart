@@ -134,6 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _posts = json.decode(utf8.decode(response.bodyBytes));
           _isLoadingFeed = false;
         });
+      } else {
+        setState(() => _isLoadingFeed = false);
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingFeed = false);
@@ -155,15 +157,20 @@ class _HomeScreenState extends State<HomeScreen> {
             
             Future<void> cargarComentariosInterno() async {
               try {
-                final res = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/comments/post/$postId'));
+                final res = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/comments/post/$postId'))
+                                    .timeout(const Duration(seconds: 4));
                 if (res.statusCode == 200) {
+                  final decodedData = json.decode(utf8.decode(res.bodyBytes));
                   setModalState(() {
-                    comments = json.decode(utf8.decode(res.bodyBytes));
-                    isLoadingComments = false;
+                    comments = decodedData is List ? decodedData : [];
+                    isLoadingComments = false; // 🎯 Se apaga la bolita con éxito
                   });
+                } else {
+                  setModalState(() => isLoadingComments = false);
                 }
               } catch (e) {
-                setModalState(() => isLoadingComments = false);
+                print("Error cargando comentarios: $e");
+                setModalState(() => isLoadingComments = false); // 🎯 Salvavidas: apaga la bolita ante fallas de red
               }
             }
 
@@ -333,7 +340,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                           
-                          // 🎯 ACCIONES UNIFICADAS DEL FEED: BOTÓN LIKES DINÁMICO Y COMENTARIOS
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                             child: Row(
@@ -396,27 +402,39 @@ class _LikeButtonWidgetState extends State<LikeButtonWidget> {
 
   Future<void> _cargarDatosReaccion() async {
     try {
-      // 1. Cargar el contador reactivo
-      final countRes = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/likes/count/${widget.postId}'));
-      // 2. Verificar el estado del estudiante actual
-      final checkRes = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/likes/check?postId=${widget.postId}&userId=${widget.userId}'));
+      final countRes = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/likes/count/${widget.postId}')).timeout(const Duration(seconds: 3));
+      final checkRes = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/likes/check?postId=${widget.postId}&userId=${widget.userId}')).timeout(const Duration(seconds: 3));
 
-      if (countRes.statusCode == 200 && checkRes.statusCode == 200) {
-        if (mounted) {
-          setState(() {
+      if (mounted) {
+        setState(() {
+          if (countRes.statusCode == 200) {
             _likesCount = json.decode(countRes.body)['likesCount'] ?? 0;
+          } else {
+            _likesCount = 0; 
+          }
+
+          if (checkRes.statusCode == 200) {
             _isLikedByMe = json.decode(checkRes.body)['liked'] ?? false;
-            _isLoading = false;
-          });
-        }
+          } else {
+            _isLikedByMe = false;
+          }
+          
+          _isLoading = false; // 🎯 ÉXITO CONTROLADO: Apaga la bolita
+        });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      print("Error obteniendo datos de interacciones: $e");
+      if (mounted) {
+        setState(() {
+          _likesCount = 0;
+          _isLikedByMe = false;
+          _isLoading = false; // 🎯 CONTROL DE ERROR DE RED: Apaga la bolita obligatoriamente
+        });
+      }
     }
   }
 
   Future<void> _toggleLike() async {
-    // Optimistic UI Update: Cambia el estado visual de inmediato para dar fluidez
     setState(() {
       if (_isLikedByMe) {
         _isLikedByMe = false;
@@ -438,7 +456,6 @@ class _LikeButtonWidgetState extends State<LikeButtonWidget> {
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        // Si el backend rebotó la petición, revertimos el cambio visual por seguridad
         _cargarDatosReaccion();
       }
     } catch (e) {
@@ -519,11 +536,14 @@ class _FilterScreenState extends State<FilterScreen> {
       print("⚠️ Servidor no respondió a tiempo, aplicando catálogo local: $e");
     }
 
-    if (mounted && _filtrosDescubiertos.isEmpty) {
+    if (mounted) {
       setState(() {
-        _filtrosDescubiertos = {
-          "CONVOLUCION_MANUAL": ["15x15", "150x150", "350x350"]
-        };
+        if (_filtrosDescubiertos.isEmpty) {
+          _filtrosDescubiertos = {
+            "CONVOLUCION_MANUAL": ["15x15", "150x150", "350x350"],
+            "HIGH_BOOST": ["25x25", "71x71", "141x141"]
+          };
+        }
         _isLoadingFilters = false;
       });
     }
@@ -531,6 +551,10 @@ class _FilterScreenState extends State<FilterScreen> {
 
   void _procesarEnGPU() async {
     if (_filtroSeleccionado == null || _mascaraSeleccionada == null) return;
+    
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
     setState(() => _isProcessing = true);
 
     try {
@@ -551,6 +575,8 @@ class _FilterScreenState extends State<FilterScreen> {
       );
       request.files.add(multipartFile);
       
+      // Enviamos el id del alumno de la sesión actual de forma explícita
+      request.fields['userId'] = user.id;
       request.fields['filter'] = _filtroSeleccionado!;
       request.fields['mask_size'] = _mascaraSeleccionada!;
 
@@ -642,98 +668,98 @@ class _FilterScreenState extends State<FilterScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Filtro Convolución Real', style: TextStyle(color: Colors.white)), backgroundColor: const Color(0xFF1E3A8A), iconTheme: const IconThemeData(color: Colors.white)),
       body: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text('Original', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 6),
-                            Image.file(File(widget.selectedImage.path), height: 160, fit: BoxFit.cover),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text('Resultado GPU', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                            const SizedBox(height: 6),
-                            _imagenProcesadaBytes != null
-                                ? Image.memory(_imagenProcesadaBytes!, height: 160, fit: BoxFit.cover)
-                                : Container(height: 160, color: Colors.grey[300], child: const Icon(Icons.bolt, color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  _isLoadingFilters 
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 10),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    : Column(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
                         children: [
-                          DropdownButton<String>(
-                            hint: const Text('Selecciona Filtro de Python'),
-                            value: _filtroSeleccionado,
-                            isExpanded: true,
-                            items: _filtrosDescubiertos.keys.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-                            onChanged: (val) => setState(() { _filtroSeleccionado = val; _mascaraSeleccionada = null; }),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButton<String>(
-                            hint: const Text('Selecciona Máscara de tu Práctica'),
-                            value: _mascaraSeleccionada,
-                            isExpanded: true,
-                            items: opcionesMascaras.map((m) => DropdownMenuItem(value: m, child: Text("Máscara $m"))).toList(),
-                            onChanged: (val) => setState(() => _mascaraSeleccionada = val),
-                          ),
+                          const Text('Original', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          Image.file(File(widget.selectedImage.path), height: 160, fit: BoxFit.cover),
                         ],
                       ),
-                      
-                  const SizedBox(height: 30),
-                  _isProcessing
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                          onPressed: _procesarEnGPU,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A)),
-                          child: const Text('PROCESAR EN GPU RECONFIGURABLE 🚀', style: TextStyle(color: Colors.white)),
-                        ),
-                  
-                  if (_imagenProcesadaBytes != null) ...[
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: Divider(thickness: 2),
                     ),
-                    TextField(
-                      controller: _descriptionController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: '¿Qué estás probando en este laboratorio?',
-                        hintText: 'Escribe una descripción para tus compañeros...',
-                        border: OutlineInputBorder(),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Resultado GPU', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                          const SizedBox(height: 6),
+                          _imagenProcesadaBytes != null
+                              ? Image.memory(_imagenProcesadaBytes!, height: 160, fit: BoxFit.cover)
+                              : Container(height: 160, color: Colors.grey[300], child: const Icon(Icons.bolt, color: Colors.grey)),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _isPublishing
-                        ? const Center(child: CircularProgressIndicator())
-                        : ElevatedButton.icon(
-                            onPressed: _publicarEnComunidad,
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                            icon: const Icon(Icons.share, color: Colors.white),
-                            label: const Text('COMPARTIR EN COMUNIDAD UPS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
                   ],
+                ),
+                const SizedBox(height: 24),
+                
+                _isLoadingFilters 
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : Column(
+                      children: [
+                        DropdownButton<String>(
+                          hint: const Text('Selecciona Filtro de Python'),
+                          value: _filtroSeleccionado,
+                          isExpanded: true,
+                          items: _filtrosDescubiertos.keys.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
+                          onChanged: (val) => setState(() { _filtroSeleccionado = val; _mascaraSeleccionada = null; }),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButton<String>(
+                          hint: const Text('Selecciona Máscara de tu Práctica'),
+                          value: _mascaraSeleccionada,
+                          isExpanded: true,
+                          items: opcionesMascaras.map((m) => DropdownMenuItem(value: m, child: Text("Máscara $m"))).toList(),
+                          onChanged: (val) => setState(() => _mascaraSeleccionada = val),
+                        ),
+                      ],
+                    ),
+                    
+                const SizedBox(height: 30),
+                _isProcessing
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: _procesarEnGPU,
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A)),
+                        child: const Text('PROCESAR EN GPU RECONFIGURABLE 🚀', style: TextStyle(color: Colors.white)),
+                      ),
+                
+                if (_imagenProcesadaBytes != null) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Divider(thickness: 2),
+                  ),
+                  TextField(
+                    controller: _descriptionController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: '¿Qué estás probando en este laboratorio?',
+                      hintText: 'Escribe una descripción para tus compañeros...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _isPublishing
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton.icon(
+                          onPressed: _publicarEnComunidad,
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                          icon: const Icon(Icons.share, color: Colors.white),
+                          label: const Text('COMPARTIR EN COMUNIDAD UPS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
                 ],
-              ),
+              ],
             ),
+          ),
     );
   }
 }
