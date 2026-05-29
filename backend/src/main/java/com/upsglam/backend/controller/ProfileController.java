@@ -37,6 +37,16 @@ public class ProfileController {
     }
 
     /**
+     * 📸 NUEVO: Actualiza la URL de la foto de perfil (avatar_url) de forma reactiva en PostgreSQL
+     */
+    @PutMapping("/update-avatar")
+    public Mono<Void> updateAvatar(@RequestBody Map<String, String> body) {
+        UUID userId = UUID.fromString(body.get("userId"));
+        String avatarUrl = body.get("avatarUrl");
+        return profileRepository.updateAvatarUrl(userId, avatarUrl);
+    }
+
+    /**
      * 🚀 Vincula la relación Follow entre dos estudiantes e inyecta la alerta
      */
     @PostMapping("/follow")

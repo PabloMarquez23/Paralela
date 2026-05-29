@@ -7,34 +7,39 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart'; // 🎯 Para dar formato limpio a fecha y hora
 import 'dart:convert';
 
+
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. Inicializas Supabase normalmente
   await Supabase.initialize(
     url: 'https://rslxsrsrquardptnjvgl.supabase.co', 
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzbHhzcnNycXVhcmRwdG5qdmdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzOTYzNzgsImV4cCI6MjA5NDk3MjM3OH0.ZZm7a2lvzGB_9CrLbpjG_Bhd0tAQ-xysqtKN2soOwuk', 
   );
-  runApp(const UPSGlamApp());
+
+  runApp(const MyApp());
 }
 
-class UPSGlamApp extends StatelessWidget {
-  const UPSGlamApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
+    // 2. REVISAMOS EN HARDWARE SI HAY UNA SESIÓN ACTIVA GUARDADA
+    final session = Supabase.instance.client.auth.currentSession;
+
     return MaterialApp(
       title: 'UPSGlam 3.0',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF1E3A8A),
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E3A8A)),
-        useMaterial3: true,
-      ),
-      home: const LoginScreen(), 
+      theme: ThemeData(primarySwatch: Colors.blue),
+      // 3. LOGICA REACTIVA: Si hay sesión va al Home, si no, al Login
+      home: session != null ? const HomeScreen() : const LoginScreen(),
     );
   }
 }
-
 // ==============================================================================
-// 🔐 PANTALLA DE AUTENTICACIÓN (LOGIN)
+// 🔐 PANTALLA DE AUTENTICACIÓN (LOGIN - CORREGIDA CON LOGO CORPORATIVO)
 // ==============================================================================
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -79,35 +84,60 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E3A8A),
+      backgroundColor: const Color(0xFF1E3A8A), // Azul Salesiano
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.camera_alt_rounded, size: 60, color: Color(0xFF1E3A8A)),
+                  const SizedBox(height: 10),
+                  // 🎯 RECIPIENTE DEL LOGO INSTITUCIONAL DE LA UNIVERSIDAD
+                  Image.asset(
+                    'assets/logo_ups.png',
+                    height: 85,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Respaldo visual por si el archivo no se encuentra temporalmente
+                      return const Icon(Icons.school_rounded, size: 60, color: Color(0xFF1E3A8A));
+                    },
+                  ),
                   const SizedBox(height: 16),
-                  const Text('UPSGlam 3.0', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                  const Text(
+                    'UPSGlam 3.0', 
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A), letterSpacing: -0.5)
+                  ),
                   const SizedBox(height: 24),
-                  TextField(controller: _emailController, decoration: const InputDecoration(labelText: 'Correo Institucional', border: OutlineInputBorder())),
+                  TextField(
+                    controller: _emailController, 
+                    decoration: const InputDecoration(labelText: 'Correo Institucional', border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))))
+                  ),
                   const SizedBox(height: 16),
-                  TextField(controller: _passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder())),
+                  TextField(
+                    controller: _passwordController, 
+                    obscureText: true, 
+                    decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))))
+                  ),
                   const SizedBox(height: 24),
                   _isLoading 
-                      ? const CircularProgressIndicator() 
+                      ? const CircularProgressIndicator(color: Color(0xFF1E3A8A)) 
                       : Column(
                           children: [
                             ElevatedButton(
                               onPressed: _signIn, 
-                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), minimumSize: const Size(200, 45)),
-                              child: const Text('Iniciar Sesión', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1E3A8A), 
+                                minimumSize: const Size(double.infinity, 48),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                              ),
+                              child: const Text('Iniciar Sesión', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             TextButton(
                               onPressed: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen()));
@@ -127,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 // ==============================================================================
-// 📝 PANTALLA DE REGISTRO
+// 📝 PANTALLA DE REGISTRO (CON IDENTIDAD INTEGRADA)
 // ==============================================================================
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -176,26 +206,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1E3A8A),
-      appBar: AppBar(title: const Text('Registro Estudiante', style: TextStyle(color: Colors.white)), backgroundColor: const Color(0xFF1E3A8A), iconTheme: const IconThemeData(color: Colors.white)),
+      appBar: AppBar(
+        title: const Text('Registro Estudiante', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), 
+        backgroundColor: const Color(0xFF1E3A8A), 
+        iconTheme: const IconThemeData(color: Colors.white)
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // 🎯 RECIPIENTE DEL LOGO REDUCIDO PARA REGISTRO
+                  Image.asset(
+                    'assets/logo_ups.png',
+                    height: 60,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 12),
                   const Text('Nueva Cuenta', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
                   const SizedBox(height: 20),
-                  TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username', border: OutlineInputBorder())),
+                  TextField(
+                    controller: _usernameController, 
+                    decoration: const InputDecoration(labelText: 'Username', border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))))
+                  ),
                   const SizedBox(height: 16),
-                  TextField(controller: _emailController, decoration: const InputDecoration(labelText: 'Correo', border: OutlineInputBorder())),
+                  TextField(
+                    controller: _emailController, 
+                    decoration: const InputDecoration(labelText: 'Correo Institucional', border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))))
+                  ),
                   const SizedBox(height: 16),
-                  TextField(controller: _passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder())),
+                  TextField(
+                    controller: _passwordController, 
+                    obscureText: true, 
+                    decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))))
+                  ),
                   const SizedBox(height: 24),
-                  _isLoading ? const CircularProgressIndicator() : ElevatedButton(onPressed: _signUp, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Registrarme', style: TextStyle(color: Colors.white))),
+                  _isLoading 
+                      ? const CircularProgressIndicator(color: Color(0xFF1E3A8A)) 
+                      : ElevatedButton(
+                          onPressed: _signUp, 
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[700],
+                            minimumSize: const Size(double.infinity, 48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                          ), 
+                          child: const Text('Registrarme', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+                        ),
                 ],
               ),
             ),
@@ -508,7 +571,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
 }
 
 // ==============================================================================
-// 📋 TAB 1: FEED SOCIAL REPOTENCIADO (COMPONENTE UNIFICADO Y SEGURO)
+// 📋 TAB 1: FEED SOCIAL REPOTENCIADO (CON AVATARES REALES DESDE SUPABASE)
 // ==============================================================================
 class FeedTab extends StatefulWidget {
   const FeedTab({super.key});
@@ -544,14 +607,17 @@ class _FeedTabState extends State<FeedTab> {
         
         for (var post in postsData) {
           try {
+            // 🎯 ADQUISICIÓN EXTRA: Jalamos el username Y el avatarUrl del perfil del autor
             final profileRes = await Supabase.instance.client
                 .from('profiles')
-                .select('username')
+                .select('username, avatar_url')
                 .eq('id', post['userId'])
                 .single();
             post['username'] = profileRes['username'];
+            post['avatarUrl'] = profileRes['avatar_url']; // Inyectamos la foto al mapa
           } catch (_) {
             post['username'] = 'Estudiante UPS';
+            post['avatarUrl'] = null;
           }
         }
 
@@ -569,12 +635,13 @@ class _FeedTabState extends State<FeedTab> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Dejar de seguir'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Dejar de seguir', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('¿Estás seguro de que quieres dejar de seguir a este estudiante? Ya no recibirás alertas de sus kernels CUDA.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () async {
               final currentUser = Supabase.instance.client.auth.currentUser;
               if (currentUser != null) {
@@ -591,7 +658,7 @@ class _FeedTabState extends State<FeedTab> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Has dejado de seguir a este estudiante.')));
               }
             },
-            child: const Text('Confirmar', style: const TextStyle(color: Colors.white)),
+            child: const Text('Confirmar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           )
         ],
       ),
@@ -621,93 +688,249 @@ class _FeedTabState extends State<FeedTab> {
     if (post['createdAt'] != null) {
       try {
         DateTime dt = DateTime.parse(post['createdAt']);
-        fechaFormateada = DateFormat('dd/MM/yyyy - HH:mm').format(dt);
+        fechaFormateada = DateFormat('dd MMM, yyyy • HH:mm').format(dt);
       } catch (e) {}
     }
 
     String displayUsername = post['username'] ?? 'Estudiante UPS';
+    String? avatarUrl = post['avatarUrl']; // Obtenemos el enlace si existe
     String initialLetter = displayUsername.isNotEmpty ? displayUsername[0].toUpperCase() : 'U';
 
-    return Card(
-      margin: const EdgeInsets.all(12),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    String obtenerNombreLegibleFiltro(String? appliedMask, String? description) {
+      String rawMask = appliedMask?.toUpperCase() ?? '';
+      String desc = (post['description'] ?? '').toString().toLowerCase();
+      
+      if (desc.contains('comandante') || desc.contains('cr7') || desc.contains('bicho')) {
+        return "Efecto Comandante (Lienzo Dinámico CR7 Master)";
+      }
+      if (rawMask.contains('350') || rawMask.contains('150') || rawMask.contains('15')) {
+        return "Borroso Gris (Desenfoque Box en B/N)";
+      } else if (rawMask.contains('141') || rawMask.contains('71') || rawMask.contains('25')) {
+        return "Súper Nitidez (High-Boost en B/N)";
+      } else if (rawMask.contains('45') || rawMask.contains('21')) {
+        return "Foto 3D Color (Efecto Relieve RGB)";
+      } else if (rawMask.contains('31')) {
+        return "Súper Enfoque (Filtro Sharpness RGB)";
+      } else if (rawMask.contains('32') || rawMask.contains('16') || rawMask.contains('8')) {
+        return "Pixeleado / Censura (Bloques de Hardware Retro)";
+      }
+      
+      if (desc.contains('ups') || desc.contains('estilo') || desc.contains('institucional')) {
+        return "Estilo UPS (Duotono Azul y Oro Salesiano)";
+      } else if (desc.contains('blanco') || desc.contains('gris') || desc.contains('mitad')) {
+        return "Blanco y Negro (Efecto Bifásico CUDA)";
+      }
+      
+      return "Filtro de Cómputo Adaptativo CUDA";
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border(
+          left: BorderSide(
+            color: yaLoSigo ? Colors.green : const Color(0xFF1E3A8A), 
+            width: 4
+          )
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A8A).withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          )
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(
-            leading: CircleAvatar(backgroundColor: const Color(0xFF1E3A8A), child: Text(initialLetter, style: const TextStyle(color: Colors.white))),
-            title: Text(displayUsername, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(fechaFormateada, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-            trailing: currentUser != null && currentUser.id != post['userId']
-                ? yaLoSigo 
-                    ? InkWell(
-                        onTap: onFollowAction, 
-                        child: const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Text('Siguiendo', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
-                        ),
-                      )
-                    : TextButton.icon(
-                        onPressed: onFollowAction,
-                        icon: const Icon(Icons.person_add, size: 16),
-                        label: const Text('Seguir', style: TextStyle(fontSize: 12)),
-                      )
-                : null,
-          ),
-          if (post['description'] != null && post['description'].toString().isNotEmpty)
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0), child: Text(post['description'])),
+          // CABECERA DE USUARIO MODIFICADA CON DETECCIÓN DE AVATAR EN RED
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            padding: const EdgeInsets.all(14.0),
             child: Row(
               children: [
-                Expanded(child: Image.network(post['imageUrl'] ?? '', height: 180, fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(height: 180, color: Colors.grey[300]))),
-                const SizedBox(width: 4),
-                Expanded(child: Image.network(post['processedUrl'] ?? '', height: 180, fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(height: 180, color: Colors.grey[300]))),
+                // 📸 AVATAR EN CALIENTE: Muestra la foto de Supabase o la letra inicial por descarte
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: const Color(0xFF1E3A8A).withOpacity(0.12),
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(initialLetter, style: const TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold, fontSize: 16))
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('@$displayUsername', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                      const SizedBox(height: 2),
+                      Text(fechaFormateada, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                if (currentUser != null && currentUser.id != post['userId'])
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    child: yaLoSigo 
+                      ? OutlinedButton(
+                          onPressed: onFollowAction,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.green, width: 1.2),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                          ),
+                          child: const Text('Siguiendo', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
+                        )
+                      : ElevatedButton.icon(
+                          onPressed: onFollowAction,
+                          icon: const Icon(Icons.person_add_rounded, size: 14, color: Colors.white),
+                          label: const Text('Seguir', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E3A8A),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                          ),
+                        ),
+                  ),
               ],
             ),
           ),
+
+          if (post['description'] != null && post['description'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              child: Text(
+                post['description'],
+                style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.4),
+              ),
+            ),
+          
+          const SizedBox(height: 8),
+
+          // LIENZO DE COMPARACIÓN
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Image.network(post['imageUrl'] ?? '', height: 210, fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(height: 210, color: Colors.grey[200])),
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.65), borderRadius: BorderRadius.circular(8)),
+                            child: const Text('ORIGINAL', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(width: 2.5, height: 210, color: Colors.amber[400]),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Image.network(post['processedUrl'] ?? '', height: 210, fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(height: 210, color: Colors.grey[200])),
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFF1E3A8A).withOpacity(0.85), borderRadius: BorderRadius.circular(8)),
+                            child: const Text('CUDA GPU', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // BARRA DE ACCIONES
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    if (currentUser != null) LikeButtonWidget(key: ValueKey('like_${post['id']}'), postId: post['id'].toString(), userId: currentUser.id),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.comment_outlined, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text('Discusión', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    String filtroAmigable = post['appliedMask'] != null && post['appliedMask'].toString().contains('71') || post['appliedMask'].toString().contains('141')
-                        ? "Realce de Bordes de Alta Potencia (High Boost)"
-                        : "Filtro de Desenfoque Suave (Convolución Manual)";
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Rendimiento de Cómputo'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Filtro Utilizado:\n$filtroAmigable'),
-                            const SizedBox(height: 8),
-                            Text('Máscara: ${post['appliedMask'] ?? 'AUTO'}'),
-                            const SizedBox(height: 8),
-                            Text('Tiempo: ${post['kernelTimeMs'] ?? '0.0'} ms'),
+                if (currentUser != null) 
+                  LikeButtonWidget(key: ValueKey('like_${post['id']}'), postId: post['id'].toString(), userId: currentUser.id),
+                
+                Material(
+                  color: Colors.amber[500]!.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      String filtroFinal = obtenerNombreLegibleFiltro(post['appliedMask']?.toString(), post['description']?.toString());
+                      
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                          title: Row(
+                            children: [
+                              Icon(Icons.memory_rounded, color: Colors.amber[600]),
+                              const SizedBox(width: 10),
+                              const Text('Métricas CUDA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                            ],
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('FILTRO DETECTADO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+                              const SizedBox(height: 2),
+                              Text(filtroFinal, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                              const Divider(height: 20),
+                              Row(
+                                children: [
+                                  const Icon(Icons.grid_on_rounded, size: 16, color: Colors.blueGrey),
+                                  const SizedBox(width: 8),
+                                  Text('Máscara: ${post['appliedMask'] ?? 'Dinámica'}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                                  const SizedBox(width: 8),
+                                  Text('Tiempo Hardware: ${post['kernelTimeMs'] ?? '0.0'} ms', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87)),
+                                ],
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context), 
+                              child: const Text('Cerrar', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                            )
                           ],
                         ),
-                        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.insights_rounded, size: 14, color: Colors.amber[800]),
+                          const SizedBox(width: 6),
+                          Text('Info Imagen', style: TextStyle(fontSize: 11, color: Colors.amber[900], fontWeight: FontWeight.bold)),
+                        ],
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[700]),
-                  icon: const Icon(Icons.info_outline, size: 14, color: Colors.white),
-                  label: const Text('Info GPU', style: TextStyle(fontSize: 11, color: Colors.white)),
+                    ),
+                  ),
                 )
               ],
             ),
@@ -722,31 +945,63 @@ class _FeedTabState extends State<FeedTab> {
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text('Comunidad UPSGlam', style: TextStyle(color: Colors.white)), backgroundColor: const Color(0xFF1E3A8A)),
-      body: _isLoadingFeed 
-          ? const Center(child: CircularProgressIndicator()) 
-          : _posts.isEmpty
-              ? const Center(child: Text('No hay publicaciones todavía. 🚀'))
-              : ListView.builder(
-                  itemCount: _posts.length,
-                  itemBuilder: (context, i) {
-                    final post = _posts[i];
-                    bool yaLoSigo = _followingIds.contains(post['userId'].toString());
-                    return construirTarjetaPost(
-                      context, 
-                      post, 
-                      yaLoSigo, 
-                      currentUser, 
-                      () => yaLoSigo ? _confirmarDejarDeSeguir(post['userId'].toString()) : _seguirEstudiante(post['userId'].toString())
-                    );
-                  },
-                ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFFFFFFFF),
+              const Color(0xFF1E3A8A).withOpacity(0.03),
+            ],
+          ),
+        ),
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverAppBar(
+              title: const Text(
+                'Comunidad UPSGlam', 
+                style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w800, fontSize: 20, letterSpacing: -0.5)
+              ), 
+              backgroundColor: Colors.white.withOpacity(0.9),
+              elevation: 0,
+              floating: true,
+              snap: true,
+              centerTitle: false,
+              shape: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
+            ),
+          ],
+          body: _isLoadingFeed 
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A))) 
+              : _posts.isEmpty
+                  ? const Center(child: Text('No hay publicaciones todavía. 🚀', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)))
+                  : RefreshIndicator(
+                      color: const Color(0xFF1E3A8A),
+                      onRefresh: _cargarFeedSocial,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.only(top: 6, bottom: 40),
+                        itemCount: _posts.length,
+                        itemBuilder: (context, i) {
+                          final post = _posts[i];
+                          bool yaLoSigo = _followingIds.contains(post['userId'].toString());
+                          return construirTarjetaPost(
+                            context, 
+                            post, 
+                            yaLoSigo, 
+                            currentUser, 
+                            () => yaLoSigo ? _confirmarDejarDeSeguir(post['userId'].toString()) : _seguirEstudiante(post['userId'].toString())
+                          );
+                        },
+                      ),
+                    ),
+        ),
+      ),
     );
   }
 }
 
 // ==============================================================================
-// 👤 TAB 3: MI PERFIL (ABRIR DETALLES E HISTORIAL DE PROCESAMIENTO)
+// 👤 TAB 3: MI PERFIL (REDISENO CON CARGA DINÁMICA DE AVATAR EN CALIENTE)
 // ==============================================================================
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key}); 
@@ -757,8 +1012,10 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   List<dynamic> _myPosts = [];
   bool _loadingMyFeed = true;
+  bool _isUpdatingAvatar = false; // 🔄 Estado de carga para el avatar
   String _userBio = "¡Hola! Estoy usando el clúster paralelo de UPSGlam.";
   String _username = "Cargando...";
+  String? _avatarUrl; // 🎯 Guarda la URL de la foto de perfil en Supabase
 
   @override
   void initState() {
@@ -774,8 +1031,11 @@ class _ProfileTabState extends State<ProfileTab> {
       final profileRes = await http.get(Uri.parse('http://192.168.18.18:8080/api/profiles/${user.id}'));
       if (profileRes.statusCode == 200) {
         final profData = json.decode(utf8.decode(profileRes.bodyBytes));
-        _userBio = profData['bio'] ?? _userBio;
-        _username = profData['username'] ?? "Estudiante";
+        setState(() {
+          _userBio = profData['bio'] ?? _userBio;
+          _username = profData['username'] ?? "Estudiante";
+          _avatarUrl = profData['avatarUrl']; // Mapea la columna de la BD
+        });
       }
 
       final res = await http.get(Uri.parse('http://192.168.18.18:8080/api/posts'));
@@ -789,13 +1049,70 @@ class _ProfileTabState extends State<ProfileTab> {
     } catch (e) { if (mounted) setState(() => _loadingMyFeed = false); }
   }
 
+  // 📸 NUEVO MÉTODO: SELECCIONAR Y SUBIR AVATAR A SUPABASE STORAGE Y POSTGRESQL
+  Future<void> _actualizarFotoPerfil() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    
+    if (image == null) return;
+
+    setState(() => _isUpdatingAvatar = true);
+
+    try {
+      final String fileExtension = image.path.split('.').last;
+      final String fileName = 'avatar_${user.id}_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+
+      // 1. Subir la imagen al storage de Supabase (Reutiliza el bucket o usa uno público)
+      await Supabase.instance.client.storage
+          .from('profiles') // Asegúrate de que este bucket exista y sea público
+          .upload(fileName, File(image.path));
+
+      // 2. Obtener la URL pública del recurso multimedia
+      final String publicUrl = Supabase.instance.client.storage
+          .from('profiles')
+          .getPublicUrl(fileName);
+
+      // 3. Sincronizar relacionalmente con tu API en Spring Boot
+      final response = await http.put(
+        Uri.parse('http://192.168.18.18:8080/api/profiles/update-avatar'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': user.id,
+          'avatarUrl': publicUrl,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        setState(() {
+          _avatarUrl = publicUrl;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('🎉 ¡Foto de perfil actualizada con éxito!'), backgroundColor: Colors.green)
+        );
+      }
+    } catch (e) {
+      debugPrint("Error al subir avatar: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ No se pudo guardar la imagen en el clúster.'), backgroundColor: Colors.red)
+      );
+    } finally {
+      setState(() => _isUpdatingAvatar = false);
+    }
+  }
+
   void _verPublicacionDetallada(Map<String, dynamic> post) {
     post['username'] = _username; 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => Scaffold(
-          appBar: AppBar(title: const Text('Mi Publicación CUDA')),
+          appBar: AppBar(
+            title: const Text('Mi Publicación CUDA', style: TextStyle(fontWeight: FontWeight.bold)),
+            centerTitle: true,
+          ),
           body: SingleChildScrollView(child: _FeedTabState.construirTarjetaPost(context, post, true, Supabase.instance.client.auth.currentUser, null)),
         ),
       ),
@@ -816,11 +1133,20 @@ class _ProfileTabState extends State<ProfileTab> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Actualizar Descripción Perfil'),
-        content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: "Escribe tu nueva biografía académica...")),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Actualizar Descripción Perfil', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller, 
+          maxLines: 3, 
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))), 
+            hintText: "Escribe tu nueva biografía académica..."
+          )
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             onPressed: () async {
               final user = Supabase.instance.client.auth.currentUser;
               if (user != null && controller.text.trim().isNotEmpty) {
@@ -829,7 +1155,7 @@ class _ProfileTabState extends State<ProfileTab> {
                 Navigator.pop(context);
               }
             },
-            child: const Text('Guardar'),
+            child: const Text('Guardar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           )
         ],
       ),
@@ -839,45 +1165,178 @@ class _ProfileTabState extends State<ProfileTab> {
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
+    String initialLetter = _username.isNotEmpty ? _username[0].toUpperCase() : 'U';
+
     return Scaffold(
-      appBar: AppBar(title: Text('Mi Espacio: $_username'), actions: [IconButton(icon: const Icon(Icons.logout, color: Colors.red), onPressed: _cerrarSesionMaster)]),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text('Mi Espacio: $_username', style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18)), 
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 22), 
+            onPressed: _cerrarSesionMaster
+          )
+        ],
+      ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
+          // 👑 TARJETA DE PERFIL CON AVATAR DETECTABLE
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1E3A8A),
+                  const Color(0xFF1E3A8A).withOpacity(0.85),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
               children: [
-                CircleAvatar(radius: 30, backgroundColor: const Color(0xFF1E3A8A), child: Text(_username.isNotEmpty ? _username[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(user?.email ?? '', style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)),
-                      const SizedBox(height: 4),
-                      Text(_userBio, style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13, color: Colors.black87)),
-                    ],
+                Row(
+                  children: [
+                    // 🎯 AVATAR INTERACTIVO CON DETECCIÓN DE RED Y FALLBACK
+                    GestureDetector(
+                      onTap: _isUpdatingAvatar ? null : _actualizarFotoPerfil,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 32, 
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            backgroundImage: _avatarUrl != null && _avatarUrl!.isNotEmpty
+                                ? NetworkImage(_avatarUrl!)
+                                : null,
+                            child: _avatarUrl == null || _avatarUrl!.isEmpty
+                                ? Text(initialLetter, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
+                                : null,
+                          ),
+                          // Capa de carga sutil sobre el círculo si se está subiendo el archivo
+                          if (_isUpdatingAvatar)
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundColor: Colors.black45,
+                              child: const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                            ),
+                          // Icono indicador flotante para denotar que es editable
+                          if (!_isUpdatingAvatar)
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: CircleAvatar(
+                                radius: 10,
+                                backgroundColor: Colors.amber,
+                                child: Icon(Icons.camera_alt, size: 11, color: Colors.blueGrey[900]),
+                              ),
+                            )
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('@$_username', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                          const SizedBox(height: 4),
+                          Text(user?.email ?? '', style: TextStyle(fontWeight: FontWeight.w400, color: Colors.white.withOpacity(0.75), fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.mode_edit_outline_rounded, color: Colors.amber, size: 22), 
+                      onPressed: _editarBiografia
+                    )
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  child: Divider(color: Colors.white24, height: 1),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _userBio, 
+                    style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12.5, color: Colors.white.withOpacity(0.9), height: 1.3),
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.edit, color: Color(0xFF1E3A8A)), onPressed: _editarBiografia)
               ],
             ),
           ),
-          const Divider(),
+
+          // CONTADOR DE PROTOTIPOS
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Publicaciones Realizadas', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF334155))),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12)
+                  ),
+                  child: Text(
+                    '${_myPosts.length} Prototipos', 
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)
+                  ),
+                )
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 10),
+
+          // GRID DE IMÁGENES DE LA GPU
           Expanded(
             child: _loadingMyFeed 
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A)))
               : _myPosts.isEmpty 
-                ? const Center(child: Text('Aún no has compartido publicaciones relacionales.'))
+                ? const Center(child: Text('Aún no has compartido publicaciones relacionales.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)))
                 : GridView.builder(
-                    padding: const EdgeInsets.all(8),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 6, mainAxisSpacing: 6),
+                    padding: const EdgeInsets.only(left: 16, right: 16, top: 0, bottom: 20),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3, 
+                      crossAxisSpacing: 10, 
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 1.0
+                    ),
                     itemCount: _myPosts.length,
                     itemBuilder: (context, i) => GestureDetector(
                       onTap: () => _verPublicacionDetallada(_myPosts[i]), 
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(_myPosts[i]['processedUrl'] ?? _myPosts[i]['imageUrl'] ?? '', fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(color: Colors.grey)),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: Image.network(
+                            _myPosts[i]['processedUrl'] ?? _myPosts[i]['imageUrl'] ?? '', 
+                            fit: BoxFit.cover, 
+                            errorBuilder: (c,e,s) => Container(
+                              color: const Color(0xFFF1F5F9),
+                              child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey, size: 20)
+                            )
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1139,7 +1598,7 @@ class _CommentSectionWidgetState extends State<CommentSectionWidget> {
           if (_replyingToCommentId != null) Container(padding: const EdgeInsets.all(6), color: Colors.grey[200], child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Respondiendo a @$_replyingToUsername', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic)), IconButton(icon: const Icon(Icons.cancel, size: 14), onPressed: () => setState(() { _replyingToCommentId = null; _replyingToUsername = null; }))])),
           Row(
             children: [
-              Expanded(child: TextField(controller: _commentController, decoration: const InputDecoration(hintText: 'Añadir aporte técnico...', isDense: true, border: UnderlineInputBorder()))),
+              Expanded(child: TextField(controller: _commentController, decoration: const InputDecoration(hintText: 'Añadir comentario...', isDense: true, border: UnderlineInputBorder()))),
               IconButton(icon: const Icon(Icons.send, size: 20, color: Color(0xFF1E3A8A)), onPressed: _postComment),
             ],
           )
@@ -1160,6 +1619,9 @@ class FilterScreen extends StatefulWidget {
 }
 
 class _FilterScreenState extends State<FilterScreen> {
+  // 👑 NUEVA VARIABLE DE ESTADO LOCAL
+  XFile? _imagenActual;
+
   String? _selectedFilter;
   bool _isProcessing = false;
   bool _isPublishing = false;
@@ -1171,32 +1633,89 @@ class _FilterScreenState extends State<FilterScreen> {
   final _descController = TextEditingController();
   final String _ip = '192.168.18.18:8080';
 
-  // Catálogo de filtros con sus respectivos íconos visuales para el carrusel
-  // 🎯 CORREGIDO: Cambiado el ícono roto a inglés nativo (Icons.palette_rounded)
+  @override
+  void initState() {
+    super.initState();
+    // Inicializamos la variable mutable con la imagen del constructor
+    _imagenActual = widget.selectedImage;
+  }
+
+  // 👑 NUEVO MÉTODO PARA CAMBIAR FOTO EN CALIENTE DENTRO DE LA MISMA VENTANA
+  Future<void> _cambiarFotoEnCaliente() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? nuevaImagen = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (nuevaImagen != null) {
+      setState(() {
+        _imagenActual = nuevaImagen;
+        _processedImageBytes = null; // Limpia filtros anteriores
+        _selectedFilter = null;      // Resetea el carrusel
+      });
+    }
+  }
+
+  // 🎯 CATÁLOGO CORREGIDO: Nombres súper sencillos y fáciles de entender
   final List<Map<String, dynamic>> _filtrosCarrusel = [
     {
-      "nombre": "Desenfoque Suave",
-      "id_tecnico": "CONVOLUCION_MANUAL",
+      "nombre": "Borroso Gris",
+      "id_tecnico": "CONVOLUCION_MANUAL", 
       "icono": Icons.blur_on_rounded,
-      "descripcion": "Suaviza bordes ruidosos"
+      "descripcion": "Efecto nublado en blanco y negro"
     },
     {
-      "nombre": "Alta Potencia",
+      "nombre": "Súper Nitidez",
       "id_tecnico": "HIGH_BOOST",
-      "icono": Icons.palette_rounded, // 🎯 Ícono corregido en inglés limpio
-      "descripcion": "Realza detalles ocultos"
-    }
+      "icono": Icons.waves_rounded,
+      "descripcion": "Resalta bordes en blanco y negro"
+    },
+    {
+      "nombre": "Foto 3D Color",
+      "id_tecnico": "EMBOSS",
+      "icono": Icons.terrain_rounded,
+      "descripcion": "Efecto relieve con colores"
+    },
+    {
+      "nombre": "Súper Enfoque",
+      "id_tecnico": "SHARPNESS",
+      "icono": Icons.details_rounded,
+      "descripcion": "Aclara y define los detalles"
+    },
+    {
+      "nombre": "Blanco y Negro",
+      "id_tecnico": "GRAYSCALE_GPU",
+      "icono": Icons.brightness_medium_rounded,
+      "descripcion": "Quita todos los colores"
+    },
+    {
+      "nombre": "Pixeleado / Censura",
+      "id_tecnico": "PIXELADO",
+      "icono": Icons.grid_view_rounded,
+      "descripcion": "Cuadritos estilo juego viejo"
+    },
+    {
+      "nombre": "Estilo UPS",
+      "id_tecnico": "IDENTITY_UPS",
+      "icono": Icons.school_rounded,
+      "descripcion": "Pinta tu foto de Azul y Amarillo"
+    },
+    {
+      "nombre": "Efecto Comandante",
+      "id_tecnico": "CR7_FRAME",
+      "icono": Icons.emoji_events,
+      "descripcion": "Prueba el efecto del comandante"
+    },
   ];
 
   void _processImageInGPU(String filtroTecnico) async {
     setState(() {
       _isProcessing = true;
-      _processedImageBytes = null; // Limpia vista previa anterior
+      _processedImageBytes = null; 
     });
     
     try {
       var request = http.MultipartRequest('POST', Uri.parse('http://$_ip/api/metrics/process-image'));
-      request.files.add(await http.MultipartFile.fromPath('image', widget.selectedImage.path));
+      // 👑 CAMBIO: Ahora envía siempre el path de la foto actual mutable
+      request.files.add(await http.MultipartFile.fromPath('image', _imagenActual!.path));
       
       request.fields['filter'] = filtroTecnico;
       request.fields['userId'] = Supabase.instance.client.auth.currentUser!.id;
@@ -1223,14 +1742,14 @@ class _FilterScreenState extends State<FilterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6), // Fondo gris claro sutil estilo iOS/Instagram
+      backgroundColor: const Color(0xFFF3F4F6), 
       appBar: AppBar(
-        title: const Text('Filtros de Laboratorio', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Filtros Disponibles', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Column(
         children: [
-          // 1. ÁREA DE VISUALIZACIÓN MULTIMEDIA (FOTO PRINCIPAL)
+          // 1. 👑 ÁREA DE VISUALIZACIÓN MULTIMEDIA REESTRUCTURADA CON STACK Y BOTÓN FLOTANTE
           Expanded(
             flex: 4,
             child: Container(
@@ -1242,27 +1761,53 @@ class _FilterScreenState extends State<FilterScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: _processedImageBytes != null 
-                    ? Image.memory(_processedImageBytes!, fit: BoxFit.contain, width: double.infinity) 
-                    : Image.file(File(widget.selectedImage.path), fit: BoxFit.contain, width: double.infinity),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: _processedImageBytes != null 
+                          ? Image.memory(_processedImageBytes!, fit: BoxFit.contain) 
+                          : Image.file(File(_imagenActual!.path), fit: BoxFit.contain),
+                    ),
+                    
+                    // 🔄 Botón de cambio de imagen en caliente sobre la esquina de la interfaz
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: FloatingActionButton.small(
+                        heroTag: 'btn_recargar_foto_local',
+                        backgroundColor: Colors.white.withOpacity(0.9),
+                        onPressed: _cambiarFotoEnCaliente,
+                        child: const Icon(Icons.published_with_changes_rounded, color: Color(0xFF1E3A8A)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
 
-          // INDICADOR DE PROCESAMIENTO EN CALIENTE
+          // INDICADOR DE PROCESAMIENTO EN CALIENTE (CORREGIDO SIN CONST CONFLICTIVO)
           if (_isProcessing)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E3A8A))),
-                  SizedBox(width: 12),
-                  Text('Ejecutando Kernel en Paralelo con CUDA...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                  const SizedBox(
+                    width: 16, 
+                    height: 16, 
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E3A8A)),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Aplicando magia al filtro... Espera un ratito 🚀', 
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                  ),
                 ],
               ),
             ),
-
+                
           // 2. 🔥 SECCIÓN MAESTRA: CARRUSEL HORIZONTAL ESTILO INSTAGRAM
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.0),
@@ -1282,7 +1827,7 @@ class _FilterScreenState extends State<FilterScreen> {
                 return GestureDetector(
                   onTap: () {
                     setState(() => _selectedFilter = filtro['nombre']);
-                    _processImageInGPU(filtro['id_tecnico']); // Dispara el cómputo atómico al tocar la tarjeta
+                    _processImageInGPU(filtro['id_tecnico']); 
                   },
                   child: Container(
                     width: 115,
@@ -1308,7 +1853,7 @@ class _FilterScreenState extends State<FilterScreen> {
             ),
           ),
 
-          // 3. CAPA DE ENTRADA METADATOS Y PUBLICACIÓN (SOLO SE ABRE SI SE PROCESÓ UNA IMAGEN)
+          // 3. CAPA DE ENTRADA METADATOS Y PUBLICACIÓN
           if (_processedImageBytes != null)
             Expanded(
               flex: 2,
@@ -1324,7 +1869,7 @@ class _FilterScreenState extends State<FilterScreen> {
                       TextField(
                         controller: _descController, 
                         decoration: const InputDecoration(
-                          hintText: 'Describe el aporte técnico o análisis de esta imagen...', 
+                          hintText: 'Coloca una descripción para tu publicación...', 
                           isDense: true, 
                           border: UnderlineInputBorder()
                         )
@@ -1345,7 +1890,8 @@ class _FilterScreenState extends State<FilterScreen> {
                                 final nameTimestamp = '${DateTime.now().millisecondsSinceEpoch}.jpg';
                                 
                                 final String originalName = 'orig_$nameTimestamp';
-                                await Supabase.instance.client.storage.from('original-images').upload(originalName, File(widget.selectedImage.path));
+                                // 👑 CAMBIO: Sube la foto actual cargada al vuelo
+                                await Supabase.instance.client.storage.from('original-images').upload(originalName, File(_imagenActual!.path));
                                 final originalUrl = Supabase.instance.client.storage.from('original-images').getPublicUrl(originalName);
                                 
                                 final String processedName = 'proc_$nameTimestamp';
@@ -1400,7 +1946,7 @@ class _FilterScreenState extends State<FilterScreen> {
           else
             const Expanded(
               flex: 2,
-              child: Center(child: Text('Toca un filtro para aplicar convolución en caliente', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))),
+              child: Center(child: Text('Selcciona un filtro para tu imagen', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))),
             )
         ],
       ),

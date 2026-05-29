@@ -78,6 +78,7 @@ public class GpuMetricController {
                             .retrieve()
                             .bodyToMono(Map.class)
                             .flatMap(response -> {
+                                // Buscamos relacionalmente el UUID del filtro usando el ID técnico
                                 return databaseClient.sql("SELECT id FROM public.filters WHERE kernel_name = :kernelName OR name = :kernelName LIMIT 1")
                                         .bind("kernelName", filter)
                                         .fetch()
@@ -88,17 +89,32 @@ public class GpuMetricController {
                                             GpuMetric metric = new GpuMetric();
                                             metric.setId(UUID.randomUUID());
                                             metric.setNewEntry(true); 
-                                            metric.setUserId(userId != null && !userId.equals("null") ? UUID.fromString(userId) : UUID.fromString("50c18c05-a920-452b-9e85-f9ae9c4584b2"));
+                                            
+                                            // Validamos que el ID del estudiante sea correcto
+                                            metric.setUserId(userId != null && !userId.equals("null") && !userId.isEmpty() 
+                                                ? UUID.fromString(userId) 
+                                                : UUID.fromString("50c18c05-a920-452b-9e85-f9ae9c4584b2"));
+                                            
                                             metric.setFilterId(resolvedFilterId);
-                                            metric.setOriginalImageUrl(filePart.filename());
+                                            metric.setOriginalImageUrl("original-images/" + filePart.filename());
                                             metric.setProcessedImageUrl(response.get("processedPath").toString());
-                                            metric.setImageWidth(parseInteger(response.get("imageWidth")));
-                                            metric.setImageHeight(parseInteger(response.get("imageHeight")));
-                                            metric.setBlockDimX(parseInteger(response.get("blockDimX")));
-                                            metric.setBlockDimY(parseInteger(response.get("blockDimY")));
-                                            metric.setGridDimX(parseInteger(response.get("gridDimX")));
-                                            metric.setGridDimY(parseInteger(response.get("gridDimY")));
-                                            metric.setTotalThreadsLaunched(parseLong(response.get("totalThreadsLaunched")));
+                                            
+                                            // 🎯 EXTRACCIÓN CORREGIDA Y PURA DE TELEMETRÍA DESDE FLASK (Evita los ceros)
+                                            int width = parseInteger(response.get("imageWidth"));
+                                            int height = parseInteger(response.get("imageHeight"));
+                                            
+                                            // Si Flask no mandó las dimensiones del grid, las recalculamos aquí para asegurar datos reales
+                                            int gX = response.containsKey("gridDimX") ? parseInteger(response.get("gridDimX")) : (int)((width + 15) / 16);
+                                            int gY = response.containsKey("gridDimY") ? parseInteger(response.get("gridDimY")) : (int)((height + 15) / 16);
+                                            long threads = (long) gX * 16 * gY * 16;
+
+                                            metric.setImageWidth(width);
+                                            metric.setImageHeight(height);
+                                            metric.setBlockDimX(16); // Bloques fijos de 16x16 definidos en el laboratorio
+                                            metric.setBlockDimY(16);
+                                            metric.setGridDimX(gX);
+                                            metric.setGridDimY(gY);
+                                            metric.setTotalThreadsLaunched(threads); // 🎯 Hilos calculados de hardware puro
                                             metric.setKernelTimeMs(parseDouble(response.get("kernelTimeMs")));
                                             metric.setStatus("COMPLETED");
                                             metric.setCreatedAt(LocalDateTime.now());

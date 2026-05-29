@@ -25,4 +25,8 @@ public interface ProfileRepository extends ReactiveCrudRepository<Profile, UUID>
     @Modifying
     @Query("INSERT INTO public.notifications (user_id, source_user_id, type) VALUES (:targetUserId, :sourceUserId, 'FOLLOW')")
     Mono<Void> createFollowNotification(UUID targetUserId, UUID sourceUserId);
+
+    @Modifying
+    @Query("UPDATE public.profiles SET avatar_url = :avatarUrl, updated_at = NOW() WHERE id = :userId")
+    Mono<Void> updateAvatarUrl(UUID userId, String avatarUrl);
 }
