@@ -6,6 +6,7 @@ import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Table("comments")
@@ -22,24 +23,36 @@ public class Comment implements Persistable<UUID> {
 
     private String content;
 
+    @Column("parent_comment_id")
+    private UUID parentCommentId; // 🎯 Relación recursiva para hilos anidados
+
     @Column("created_at")
     private LocalDateTime createdAt;
 
-    // 🎯 Campo transitorio: No está en la tabla comments, 
-    // pero almacena el username del estudiante traído desde el JOIN relacional.
+    // 🎯 Campos transitorios para optimizar la respuesta hacia Flutter
     @Transient
     private String username;
+
+    @Transient
+    private Long likesCount = 0L;
+
+    @Transient
+    private boolean likedByCurrentUser = false;
+
+    @Transient
+    private List<Comment> replies; // Hijos directos en el árbol de conversación
 
     @Transient
     private boolean isNewEntry = true;
 
     public Comment() {}
 
-    public Comment(UUID id, UUID postId, UUID userId, String content, LocalDateTime createdAt, String username) {
+    public Comment(UUID id, UUID postId, UUID userId, String content, UUID parentCommentId, LocalDateTime createdAt, String username) {
         this.id = id;
         this.postId = postId;
         this.userId = userId;
         this.content = content;
+        this.parentCommentId = parentCommentId;
         this.createdAt = createdAt;
         this.username = username;
     }
@@ -91,6 +104,14 @@ public class Comment implements Persistable<UUID> {
         this.content = content;
     }
 
+    public UUID getParentCommentId() {
+        return parentCommentId;
+    }
+
+    public void setParentCommentId(UUID parentCommentId) {
+        this.parentCommentId = parentCommentId;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -105,5 +126,29 @@ public class Comment implements Persistable<UUID> {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public Long getLikesCount() {
+        return likesCount;
+    }
+
+    public void setLikesCount(Long likesCount) {
+        this.likesCount = likesCount;
+    }
+
+    public boolean isLikedByCurrentUser() {
+        return likedByCurrentUser;
+    }
+
+    public void setLikedByCurrentUser(boolean likedByCurrentUser) {
+        this.likedByCurrentUser = likedByCurrentUser;
+    }
+
+    public List<Comment> getReplies() {
+        return replies;
+    }
+
+    public void setReplies(List<Comment> replies) {
+        this.replies = replies;
     }
 }

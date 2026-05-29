@@ -23,18 +23,56 @@ public class InteractionService {
     }
 
     // ==============================================================================
-    // 📩 SERVICIO DE COMENTARIOS ACADÉMICOS
+    // 📩 SERVICIO DE COMENTARIOS ACADÉMICOS (RECURSIVOS E HILADOS)
     // ==============================================================================
 
     /**
-     * 🎯 Obtiene los comentarios de un post ordenados por fecha con el username del alumno.
+     * 🎯 Método fallback por si algún componente plano sigue llamando a la lista antigua
      */
     public Flux<Comment> getCommentsByPostId(UUID postId) {
-        return commentRepository.findByPostIdWithUsername(postId);
+        return commentRepository.findRootCommentsByPostId(postId);
     }
 
     /**
-     * 🎯 Guarda un nuevo comentario inyectando el ID transaccional asíncrono.
+     * 🚀 Construye la estructura jerárquica en árbol con métricas de likes adaptadas 
+     * para que Flutter renderice las respuestas e hilos de conversación.
+     */
+    public Flux<Comment> getCommentsTreeByPostId(UUID postId, UUID userId) {
+        return commentRepository.findRootCommentsByPostId(postId)
+                .flatMap(rootComment -> 
+                    Mono.zip(
+                        commentRepository.countLikesByCommentId(rootComment.getId()).defaultIfEmpty(0L),
+                        commentRepository.existsLikeByCommentIdAndUserId(rootComment.getId(), userId).defaultIfEmpty(false)
+                    ).flatMap(tuple -> {
+                        rootComment.setLikesCount(tuple.getT1());
+                        rootComment.setLikedByCurrentUser(tuple.getT2());
+                        return resolveRepliesRecursively(rootComment, userId).thenReturn(rootComment);
+                    })
+                );
+    }
+
+    /**
+     * 🛠️ Helper recursivo reactivo para profundizar en las respuestas de los hilos
+     */
+    private Mono<Void> resolveRepliesRecursively(Comment parentComment, UUID userId) {
+        return commentRepository.findRepliesByParentId(parentComment.getId())
+                .flatMap(reply -> 
+                    Mono.zip(
+                        commentRepository.countLikesByCommentId(reply.getId()).defaultIfEmpty(0L),
+                        commentRepository.existsLikeByCommentIdAndUserId(reply.getId(), userId).defaultIfEmpty(false)
+                    ).flatMap(tuple -> {
+                        reply.setLikesCount(tuple.getT1());
+                        reply.setLikedByCurrentUser(tuple.getT2());
+                        return resolveRepliesRecursively(reply, userId).thenReturn(reply);
+                    })
+                )
+                .collectList()
+                .doOnNext(parentComment::setReplies)
+                .then();
+    }
+
+    /**
+     * 🎯 Guarda un comentario (Raíz o Respuesta) e inyecta la notificación en Supabase
      */
     @Transactional
     public Mono<Comment> saveComment(Comment comment) {
@@ -43,15 +81,76 @@ public class InteractionService {
         }
         comment.setCreatedAt(LocalDateTime.now());
         comment.setNewEntry(true);
-        return commentRepository.save(comment);
+
+        return commentRepository.save(comment)
+                .flatMap(savedComment -> {
+                    // Caso A: El comentario es una RESPUESTA (HILO ANIDADO) -> Alerta al dueño del comentario padre
+                    if (savedComment.getParentCommentId() != null) {
+                        return commentRepository.findCommentOwnerId(savedComment.getParentCommentId())
+                                .flatMap(targetUserId -> {
+                                    if (!targetUserId.equals(savedComment.getUserId())) {
+                                        return commentRepository.createNotification(
+                                                targetUserId, 
+                                                savedComment.getUserId(), 
+                                                "REPLY", 
+                                                savedComment.getPostId(), 
+                                                savedComment.getId()
+                                        );
+                                    }
+                                    return Mono.empty();
+                                })
+                                .thenReturn(savedComment);
+                    } else {
+                        // Caso B: El comentario es RAÍZ -> Alerta al dueño de la publicación (Post)
+                        return commentRepository.findPostOwnerId(savedComment.getPostId())
+                                .flatMap(targetUserId -> {
+                                    if (!targetUserId.equals(savedComment.getUserId())) {
+                                        return commentRepository.createNotification(
+                                                targetUserId, 
+                                                savedComment.getUserId(), 
+                                                "COMMENT", 
+                                                savedComment.getPostId(), 
+                                                savedComment.getId()
+                                        );
+                                    }
+                                    return Mono.empty();
+                                })
+                                .thenReturn(savedComment);
+                    }
+                });
+    }
+
+    /**
+     * ⚙️ Alterna (Toggle) el Like en un COMENTARIO específico e inyecta alertas en caliente
+     */
+    @Transactional
+    public Mono<String> toggleCommentLike(UUID commentId, UUID userId) {
+        return commentRepository.existsLikeByCommentIdAndUserId(commentId, userId)
+                .flatMap(exists -> {
+                    if (exists) {
+                        return commentRepository.deleteCommentLike(commentId, userId).thenReturn("UNLIKED");
+                    } else {
+                        return commentRepository.insertCommentLike(commentId, userId)
+                                .then(commentRepository.findCommentOwnerId(commentId))
+                                .flatMap(targetUserId -> {
+                                    if (!targetUserId.equals(userId)) {
+                                        return commentRepository.createNotification(
+                                                targetUserId, userId, "LIKE_COMMENT", null, commentId
+                                        );
+                                    }
+                                    return Mono.empty();
+                                })
+                                .thenReturn("LIKED");
+                    }
+                });
     }
 
     // ==============================================================================
-    // ❤️ SERVICIO DE REACCIONES (LIKES ANTI-DUPLICADOS)
+    // ❤️ SERVICIO DE REACCIONES EN POSTS (MANTENIDO E INTEGRADO CON NOTIFICACIONES)
     // ==============================================================================
 
     /**
-     * 🎯 Remueve o agrega una reacción según el estado previo del estudiante en la nube.
+     * 🎯 Remueve o agrega una reacción al post e inyecta alertas dinámicas para el dueño de la foto.
      */
     @Transactional
     public Mono<String> toggleLike(UUID postId, UUID userId) {
@@ -64,7 +163,16 @@ public class InteractionService {
                     Like newLike = new Like(UUID.randomUUID(), postId, userId, LocalDateTime.now());
                     newLike.setNewEntry(true);
                     return likeRepository.save(newLike)
-                        .map(saved -> "ADDED");
+                        .then(commentRepository.findPostOwnerId(postId))
+                        .flatMap(targetUserId -> {
+                            if (!targetUserId.equals(userId)) {
+                                return commentRepository.createNotification(
+                                        targetUserId, userId, "LIKE_POST", postId, null
+                                );
+                            }
+                            return Mono.empty();
+                        })
+                        .then(Mono.just("ADDED"));
                 }
             });
     }

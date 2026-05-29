@@ -8,7 +8,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/posts")
-@CrossOrigin(origins = "*") // Clave para evitar problemas de CORS con la app móvil
+@CrossOrigin(origins = "*")
 public class PostController {
 
     private final PostService service;
@@ -17,15 +17,13 @@ public class PostController {
         this.service = service;
     }
 
-    // Endpoint para que Flutter cree un nuevo post en el feed
     @PostMapping
     public Mono<Post> createPost(@RequestBody Post post) {
         return service.createPost(post);
     }
 
-    // Endpoint para que Flutter recupere el feed general
     @GetMapping
-    public Flux<Post> getFeed() {
+    public Flux<com.upsglam.backend.dto.PostFeedDto> getFeed() {
         return service.getFeed();
     }
 }

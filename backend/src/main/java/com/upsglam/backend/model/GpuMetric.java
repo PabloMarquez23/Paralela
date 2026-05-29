@@ -61,8 +61,13 @@ public class GpuMetric implements Persistable<UUID> {
     @Column("created_at")
     private LocalDateTime createdAt;
 
+    // 🎯 Campo dinámico para inyectar el nombre real de tu precarga SQL en los filtros
+    @Transient
+    private String filterName;
+
+    // 🎯 Cambiado a isNewEntry para evitar que el @Data de Lombok destruya el @Override
     @Transient 
-    private boolean isNew = true;
+    private boolean isNewEntry = true;
 
     @Override
     public UUID getId() {
@@ -72,6 +77,11 @@ public class GpuMetric implements Persistable<UUID> {
     @Override
     @Transient
     public boolean isNew() {
-        return this.isNew;
+        return this.isNewEntry;
+    }
+
+    // Setter manual para controlar la persistencia reactiva en tus servicios
+    public void setNewEntry(boolean isNewEntry) {
+        this.isNewEntry = isNewEntry;
     }
 }

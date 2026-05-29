@@ -25,35 +25,34 @@ public class Post implements Persistable<UUID> {
 
     private String description;
 
+    @Column("applied_mask")
+    private String appliedMask; // 🎯 REQUERIMIENTO: Almacena la máscara auto-calculada
+
+    @Column("kernel_time_ms")
+    private Double kernelTimeMs; // 🎯 REQUERIMIENTO: Guarda el tiempo del kernel
+
     @Column("created_at")
     private LocalDateTime createdAt;
 
-    // 🎯 Campo transitorio: No se mapea en las columnas de Supabase.
-    // Sirve para capturar el nombre del alumno en el JOIN del Feed.
     @Transient
     private String username;
 
-    // 🎯 Bandera transitoria interna para gobernar el comportamiento de inserción de R2DBC
     @Transient
     private boolean isNewEntry = true;
 
-    // Constructor Vacío Obligatorio para Spring
     public Post() {}
 
-    // Constructor Completo
-    public Post(UUID id, UUID userId, String imageUrl, String processedUrl, String description, LocalDateTime createdAt, String username) {
+    public Post(UUID id, UUID userId, String imageUrl, String processedUrl, String description, String appliedMask, Double kernelTimeMs, LocalDateTime createdAt, String username) {
         this.id = id;
         this.userId = userId;
         this.imageUrl = imageUrl;
         this.processedUrl = processedUrl;
         this.description = description;
+        this.appliedMask = appliedMask;
+        this.kernelTimeMs = kernelTimeMs;
         this.createdAt = createdAt;
         this.username = username;
     }
-
-    // ==============================================================================
-    // MÉTODOS OBLIGATORIOS DE LA INTERFAZ PERSISTABLE
-    // ==============================================================================
 
     @Override
     public UUID getId() {
@@ -71,58 +70,24 @@ public class Post implements Persistable<UUID> {
     }
 
     // ==============================================================================
-    // GETTERS Y SETTERS TRADICIONALES
+    // GETTERS Y SETTERS
     // ==============================================================================
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public UUID getUserId() {
-        return userId;
-    }
-
-    public void setUserId(UUID userId) {
-        this.userId = userId;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
-    }
-
-    public String getProcessedUrl() {
-        return processedUrl;
-    }
-
-    public void setProcessedUrl(String processedUrl) {
-        this.processedUrl = processedUrl;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
+    public void setId(UUID id) { this.id = id; }
+    public UUID getUserId() { return userId; }
+    public void setUserId(UUID userId) { this.userId = userId; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public String getProcessedUrl() { return processedUrl; }
+    public void setProcessedUrl(String processedUrl) { this.processedUrl = processedUrl; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getAppliedMask() { return appliedMask; }
+    public void setAppliedMask(String appliedMask) { this.appliedMask = appliedMask; }
+    public Double getKernelTimeMs() { return kernelTimeMs; }
+    public void setKernelTimeMs(Double kernelTimeMs) { this.kernelTimeMs = kernelTimeMs; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 }

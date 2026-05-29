@@ -11,17 +11,16 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "processed_images"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 🎯 CATÁLOGO UNIFICADO: Mapea los filtros oficiales exigidos por tu rúbrica SQL
+# 🎯 CATÁLOGO ACTUALIZADO: Nombres amigables para la visualización final
 MASCARAS_MASTER = {
     "CONVOLUCION_MANUAL": ["15x15", "150x150", "350x350"],
-    "HIGH_BOOST": ["25x25", "71x71", "141x141"] # 🚀 Tu nuevo filtro estrella
+    "HIGH_BOOST": ["25x25", "71x71", "141x141"]
 }
 
 # ==============================================================================
 # 🔥 KERNELS CUDA EN CUPY (Arquitectura en Paralelo Pura)
 # ==============================================================================
 
-# Kernel 1: Convolución Estándar (Promedio/Blur)
 convolucion_kernel = cp.RawKernel(r'''
 extern "C" __global__ 
 void kernelConvolucion(const unsigned char* in, unsigned char* out, int w, int h, int mask_size) {
@@ -45,8 +44,6 @@ void kernelConvolucion(const unsigned char* in, unsigned char* out, int w, int h
 }
 ''', 'kernelConvolucion')
 
-
-# Kernel 2: High-Boost Inteligente (Filtro Dinámico de Alta Amplificación)
 high_boost_kernel = cp.RawKernel(r'''
 extern "C" __global__
 void kernelHighBoost(const unsigned char* in, unsigned char* out, const float* kernel, int w, int h, int mask_size) {
@@ -55,7 +52,6 @@ void kernelHighBoost(const unsigned char* in, unsigned char* out, const float* k
     int offset = mask_size / 2;
 
     if (x < w && y < h) {
-        // Manejo estricto de bordes según la lógica del enunciado
         if (x >= offset && y >= offset && x < w - offset && y < h - offset) {
             float suma = 0.0f;
 
@@ -66,11 +62,8 @@ void kernelHighBoost(const unsigned char* in, unsigned char* out, const float* k
                     suma += pixel * valor_kernel;
                 }
             }
-            
-            // Clamping atómico (0 - 255) nativo en GPU
             out[y * w + x] = (unsigned char)max(0.0f, min(suma, 255.0f));
         } else {
-            // Mantener el píxel original intacto en las fronteras de la máscara
             out[y * w + x] = in[y * w + x];
         }
     }
@@ -93,38 +86,54 @@ def apply_filter():
         
         file = request.files['image']
         filtro = request.form.get('filter', 'CONVOLUCION_MANUAL')
-        mascara_str = request.form.get('mask_size', '15x15')
-        mask_size = int(mascara_str.split('x')[0])
+        mascara_str = request.form.get('mask_size', 'AUTO')
 
         # 1. Decodificar la imagen en escala de grises vía OpenCV
         file_bytes = np.frombuffer(file.read(), np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_GRAYSCALE)
         h, w = img.shape
+        total_pixeles = w * h
 
-        print(f"🔥 Modo GPU Activo: [{filtro}] | Dimensión: {w}x{h} | Máscara: {mask_size}x{mask_size}")
+        # 🎯 2. ALGORITMO DECISOR: Selección inteligente automática de la máscara según la resolución
+        mask_size = 15 
+        if mascara_str == "AUTO" or not mascara_str:
+            if filtro == "CONVOLUCION_MANUAL":
+                if total_pixeles > 2000000:    
+                    mask_size = 350
+                elif total_pixeles > 800000:   
+                    mask_size = 150
+                else:
+                    mask_size = 15
+            elif filtro == "HIGH_BOOST":
+                if total_pixeles > 2000000:
+                    mask_size = 141
+                elif total_pixeles > 800000:
+                    mask_size = 71
+                else:
+                    mask_size = 25
+        else:
+            mask_size = int(mascara_str.split('x')[0])
 
-        # 2. Alojar matrices en la VRAM de la GeForce
+        print(f"🔥 Cómputo Paralelo CUDA: [{filtro}] | Resolución: {w}x{h} | Máscara Auto-Asignada: {mask_size}x{mask_size}")
+
+        # 3. Alojar matrices en la VRAM de la GeForce
         img_gpu = cp.array(img, dtype=cp.uint8)
         res_gpu = cp.empty_like(img_gpu)
 
-        # 3. Mapear la Arquitectura de Grid e Hilos (Bloques de 16x16)
+        # 4. Mapear la Arquitectura de Grid e Hilos (Bloques de 16x16)
         block_dim = (16, 16)
         grid_dim = (int((w + 15) // 16), int((h + 15) // 16))
         total_threads = int(grid_dim[0] * 16 * grid_dim[1] * 16)
 
-        # 4. Orquestación y ejecución de Kernels según el Filtro Seleccionado
+        # 5. Orquestación y ejecución de Kernels en GPU
         start_time = time.time()
         
         if filtro == "HIGH_BOOST":
-            # Generar la matriz matemática del High-Boost directamente en la GPU
             kernel_hb = cp.full((mask_size, mask_size), -1.0 / (mask_size * mask_size), dtype=cp.float32)
             centro = mask_size // 2
-            kernel_hb[centro, centro] = 2.0  # Factor de amplificación A = 2
-            
-            # Lanzamos el kernel dedicado pasándole la matriz del filtro en VRAM
+            kernel_hb[centro, centro] = 2.0  
             high_boost_kernel(grid_dim, block_dim, (img_gpu, res_gpu, kernel_hb, w, h, mask_size))
         else:
-            # Filtro por defecto: Convolución manual estándar
             convolucion_kernel(grid_dim, block_dim, (img_gpu, res_gpu, w, h, mask_size))
 
         cp.cuda.Stream.null.synchronize()
@@ -132,14 +141,14 @@ def apply_filter():
 
         kernel_time_ms = (end_time - start_time) * 1000.0
 
-        # 5. Descargar el resultado procesado a la RAM del Host
+        # 6. Descargar el resultado procesado a la RAM del Host
         res_cpu_img = res_gpu.get()
         
         output_filename = f"result_{int(time.time())}_{mask_size}.jpg"
         output_path = os.path.join(UPLOAD_FOLDER, output_filename)
         cv2.imwrite(output_path, res_cpu_img)
 
-        # Retorna el mismo JSON exacto que tu Java WebFlux ya sabe leer
+        # Retorna la metadata limpia incluyendo la máscara calculada en caliente
         return jsonify({
             "status": "COMPLETED",
             "processedPath": output_path,
@@ -150,7 +159,8 @@ def apply_filter():
             "gridDimX": grid_dim[0],
             "gridDimY": grid_dim[1],
             "totalThreadsLaunched": total_threads,
-            "kernelTimeMs": round(kernel_time_ms, 4)
+            "kernelTimeMs": round(kernel_time_ms, 4),
+            "appliedMask": f"{mask_size}x{mask_size}" 
         }), 200
 
     except Exception as e:
