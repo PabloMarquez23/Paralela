@@ -1,0 +1,67 @@
+# ==============================================================================
+# 🔐 SEGURIDAD: ARCHIVOS LOCALES DE ENTORNO
+# ==============================================================================
+# Nunca subir credenciales reales de Supabase o bases de datos a GitHub
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ==============================================================================
+# ☕ CONFIGURACIÓN Y COMPILACIÓN JAVA / SPRING BOOT (backend/)
+# ==============================================================================
+**/build/
+**/out/
+**/.gradle/
+**/bin/
+**/.settings/
+**/.classpath
+**/.project
+**/*.jar
+**/*.war
+**/*.ear
+
+# ==============================================================================
+# 🐍 ENTORNOS VIRTUALES Y CACHÉ DE PYTHON (gpu_service/)
+# ==============================================================================
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.tox/
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
+
+# ==============================================================================
+# 🖼️ ALMACENAMIENTO DE IMÁGENES LOCALES (Docker / Flask Volumes)
+# ==============================================================================
+# Ignora las fotos temporales que procesa la GPU localmente
+**/processed_images/
+**/static/processed/
+*.jpg
+*.jpeg
+*.png
+
+# ==============================================================================
+# 🐳 CONTENEDORES Y LOGS DEL ENTORNO DOCKER
+# ==============================================================================
+**/.docker/
+**/*.log
+**/logs/
+
+# ==============================================================================
+# 💻 ARCHIVOS DEL SISTEMA OPERATIVO Y EDITORES (VS Code / IntelliJ)
+# ==============================================================================
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+Thumbs.db
+.DS_Store

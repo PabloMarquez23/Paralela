@@ -1,0 +1,35 @@
+services:
+  backend_service:
+    build: ./backend
+    container_name: upsglam_backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - FLASK_SERVER_URL=http://flaskservice:5000
+    depends_on:
+      - flaskservice
+    networks:
+      - upsglam_net
+
+  flaskservice:
+    build: ./gpu_service
+    container_name: flaskservice
+    ports:
+      - "5000:5000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    env_file:
+      - .env
+    networks:
+      - upsglam_net
+
+networks:
+  upsglam_net:
+    driver: bridge

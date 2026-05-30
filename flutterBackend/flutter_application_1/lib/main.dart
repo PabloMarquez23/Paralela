@@ -4,10 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart'; // 🎯 Para dar formato limpio a fecha y hora
+import 'package:intl/intl.dart'; 
 import 'dart:convert';
 
-
+// ==============================================================================
+// 🔌 CONFIGURACIÓN CENTRALIZADA DE RED LOCAL (OBLIGATORIO PARA LA UPS)
+// ==============================================================================
+class ApiConfig {
+  // Cambia esta IP una sola vez aquí si tu router Wi-Fi llega a cambiar
+  static const String baseUrl = 'http://192.168.18.18:8080';
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,8 +44,9 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 // ==============================================================================
-// 🔐 PANTALLA DE AUTENTICACIÓN (LOGIN - CORREGIDA CON LOGO CORPORATIVO)
+// 🔐 PANTALLA DE AUTENTICACIÓN (LOGIN)
 // ==============================================================================
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -97,13 +104,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(height: 10),
-                  // 🎯 RECIPIENTE DEL LOGO INSTITUCIONAL DE LA UNIVERSIDAD
                   Image.asset(
                     'assets/logo_ups.png',
                     height: 85,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
-                      // Respaldo visual por si el archivo no se encuentra temporalmente
                       return const Icon(Icons.school_rounded, size: 60, color: Color(0xFF1E3A8A));
                     },
                   ),
@@ -157,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 // ==============================================================================
-// 📝 PANTALLA DE REGISTRO (CON IDENTIDAD INTEGRADA)
+// 📝 PANTALLA DE REGISTRO
 // ==============================================================================
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -222,7 +227,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 🎯 RECIPIENTE DEL LOGO REDUCIDO PARA REGISTRO
                   Image.asset(
                     'assets/logo_ups.png',
                     height: 60,
@@ -270,7 +274,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 }
 
 // ==============================================================================
-// 🏠 NAVEGADOR PRINCIPAL (MÉTRICAS REMOVIDAS, BADGE DE ALERTAS AGREGADO)
+// 🏠 NAVEGADOR PRINCIPAL
 // ==============================================================================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -296,7 +300,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     try {
-      // 🎯 CONDICIÓN MEJORADA: El punto rojo solo se dibuja si existen notificaciones con is_read = false
       final res = await Supabase.instance.client
           .from('notifications')
           .select('id')
@@ -329,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() => _currentIndex = index);
           if (index == 0) _feedKey.currentState?._cargarFeedSocial();
           if (index == 1) {
-            setState(() => _hasNewNotifications = false); // Borra el aviso visual al instante
+            setState(() => _hasNewNotifications = false); 
             _notificationsKey.currentState?._cargarNotificaciones();
           }
           if (index == 2) _profileKey.currentState?._loadProfileAndPosts();
@@ -377,8 +380,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
 // ==============================================================================
-// 🔔 TAB 2: NOTIFICACIONES ACADÉMICAS (DIRECCIÓN INTELIGENTE A POSTS O PERFILES)
+// 🔔 TAB 2: NOTIFICACIONES ACADÉMICAS
 // ==============================================================================
 class NotificationsTab extends StatefulWidget {
   const NotificationsTab({super.key});
@@ -424,12 +428,11 @@ class _NotificationsTabState extends State<NotificationsTab> {
     }
   }
 
-  // 🎯 REDIRECCIÓN COMPLETA DE ALERTA AL DETALLE DEL POST REAL
   void _navegarAlPost(String? postId) async {
     if (postId == null) return;
     setState(() => _isLoading = true);
     try {
-      final res = await http.get(Uri.parse('http://192.168.18.18:8080/api/posts'));
+      final res = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/posts'));
       List<dynamic> all = json.decode(utf8.decode(res.bodyBytes));
       final postTarget = all.firstWhere((p) => p['id'].toString() == postId);
 
@@ -451,14 +454,12 @@ class _NotificationsTabState extends State<NotificationsTab> {
     } catch (_) { if (mounted) setState(() => _isLoading = false); }
   }
 
-  // 🎯 NUEVA REDIRECCIÓN: Abre el perfil completo del estudiante que te acaba de seguir
   void _verPerfilSeguidor(Map<String, dynamic> perfilRemitente) async {
     setState(() => _isLoading = true);
     try {
-      final res = await http.get(Uri.parse('http://192.168.18.18:8080/api/posts'));
+      final res = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/posts'));
       List<dynamic> all = json.decode(utf8.decode(res.bodyBytes));
       
-      // Filtramos únicamente las publicaciones que le pertenecen a ese estudiante
       List<dynamic> studentPosts = all.where((p) => p['userId'].toString().toLowerCase() == perfilRemitente['id'].toString().toLowerCase()).toList();
 
       for (var p in studentPosts) {
@@ -550,7 +551,6 @@ class _NotificationsTabState extends State<NotificationsTab> {
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: ListTile(
-                          // Enrutador inteligente según el tipo de interacción de Supabase
                           onTap: () {
                             if (item['type'] == 'FOLLOW') {
                               _verPerfilSeguidor(item['profiles']);
@@ -571,7 +571,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
 }
 
 // ==============================================================================
-// 📋 TAB 1: FEED SOCIAL REPOTENCIADO (CON AVATARES REALES DESDE SUPABASE)
+// 📋 TAB 1: FEED SOCIAL
 // ==============================================================================
 class FeedTab extends StatefulWidget {
   const FeedTab({super.key});
@@ -601,20 +601,19 @@ class _FeedTabState extends State<FeedTab> {
       
       _followingIds = (followsRes as List).map((f) => f['following_id'].toString()).toList();
 
-      final response = await http.get(Uri.parse('http://192.168.18.18:8080/api/posts'));
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/posts'));
       if (response.statusCode == 200 && mounted) {
         List<dynamic> postsData = json.decode(utf8.decode(response.bodyBytes));
         
         for (var post in postsData) {
           try {
-            // 🎯 ADQUISICIÓN EXTRA: Jalamos el username Y el avatarUrl del perfil del autor
             final profileRes = await Supabase.instance.client
                 .from('profiles')
                 .select('username, avatar_url')
                 .eq('id', post['userId'])
                 .single();
             post['username'] = profileRes['username'];
-            post['avatarUrl'] = profileRes['avatar_url']; // Inyectamos la foto al mapa
+            post['avatarUrl'] = profileRes['avatar_url']; 
           } catch (_) {
             post['username'] = 'Estudiante UPS';
             post['avatarUrl'] = null;
@@ -670,7 +669,7 @@ class _FeedTabState extends State<FeedTab> {
     if (currentUser == null) return;
     try {
       final res = await http.post(
-        Uri.parse('http://192.168.18.18:8080/api/profiles/follow'),
+        Uri.parse('${ApiConfig.baseUrl}/api/profiles/follow'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'followerId': currentUser.id, 'followingId': followingId})
       );
@@ -693,7 +692,7 @@ class _FeedTabState extends State<FeedTab> {
     }
 
     String displayUsername = post['username'] ?? 'Estudiante UPS';
-    String? avatarUrl = post['avatarUrl']; // Obtenemos el enlace si existe
+    String? avatarUrl = post['avatarUrl']; 
     String initialLetter = displayUsername.isNotEmpty ? displayUsername[0].toUpperCase() : 'U';
 
     String obtenerNombreLegibleFiltro(String? appliedMask, String? description) {
@@ -746,12 +745,10 @@ class _FeedTabState extends State<FeedTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // CABECERA DE USUARIO MODIFICADA CON DETECCIÓN DE AVATAR EN RED
           Padding(
             padding: const EdgeInsets.all(14.0),
             child: Row(
               children: [
-                // 📸 AVATAR EN CALIENTE: Muestra la foto de Supabase o la letra inicial por descarte
                 CircleAvatar(
                   radius: 22,
                   backgroundColor: const Color(0xFF1E3A8A).withOpacity(0.12),
@@ -813,7 +810,6 @@ class _FeedTabState extends State<FeedTab> {
           
           const SizedBox(height: 8),
 
-          // LIENZO DE COMPARACIÓN
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: ClipRRect(
@@ -858,7 +854,6 @@ class _FeedTabState extends State<FeedTab> {
             ),
           ),
 
-          // BARRA DE ACCIONES
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -1001,7 +996,7 @@ class _FeedTabState extends State<FeedTab> {
 }
 
 // ==============================================================================
-// 👤 TAB 3: MI PERFIL (REDISENO CON CARGA DINÁMICA DE AVATAR EN CALIENTE)
+// 👤 TAB 3: MI PERFIL
 // ==============================================================================
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key}); 
@@ -1012,10 +1007,10 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   List<dynamic> _myPosts = [];
   bool _loadingMyFeed = true;
-  bool _isUpdatingAvatar = false; // 🔄 Estado de carga para el avatar
+  bool _isUpdatingAvatar = false; 
   String _userBio = "¡Hola! Estoy usando el clúster paralelo de UPSGlam.";
   String _username = "Cargando...";
-  String? _avatarUrl; // 🎯 Guarda la URL de la foto de perfil en Supabase
+  String? _avatarUrl; 
 
   @override
   void initState() {
@@ -1028,17 +1023,17 @@ class _ProfileTabState extends State<ProfileTab> {
     if (user == null) return;
     if (mounted) setState(() => _loadingMyFeed = true);
     try {
-      final profileRes = await http.get(Uri.parse('http://192.168.18.18:8080/api/profiles/${user.id}'));
+      final profileRes = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/profiles/${user.id}'));
       if (profileRes.statusCode == 200) {
         final profData = json.decode(utf8.decode(profileRes.bodyBytes));
         setState(() {
           _userBio = profData['bio'] ?? _userBio;
           _username = profData['username'] ?? "Estudiante";
-          _avatarUrl = profData['avatarUrl']; // Mapea la columna de la BD
+          _avatarUrl = profData['avatarUrl']; 
         });
       }
 
-      final res = await http.get(Uri.parse('http://192.168.18.18:8080/api/posts'));
+      final res = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/posts'));
       if (res.statusCode == 200 && mounted) {
         final List<dynamic> all = json.decode(utf8.decode(res.bodyBytes));
         setState(() {
@@ -1049,7 +1044,6 @@ class _ProfileTabState extends State<ProfileTab> {
     } catch (e) { if (mounted) setState(() => _loadingMyFeed = false); }
   }
 
-  // 📸 NUEVO MÉTODO: SELECCIONAR Y SUBIR AVATAR A SUPABASE STORAGE Y POSTGRESQL
   Future<void> _actualizarFotoPerfil() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
@@ -1065,19 +1059,16 @@ class _ProfileTabState extends State<ProfileTab> {
       final String fileExtension = image.path.split('.').last;
       final String fileName = 'avatar_${user.id}_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
 
-      // 1. Subir la imagen al storage de Supabase (Reutiliza el bucket o usa uno público)
       await Supabase.instance.client.storage
-          .from('profiles') // Asegúrate de que este bucket exista y sea público
+          .from('profiles') 
           .upload(fileName, File(image.path));
 
-      // 2. Obtener la URL pública del recurso multimedia
       final String publicUrl = Supabase.instance.client.storage
           .from('profiles')
           .getPublicUrl(fileName);
 
-      // 3. Sincronizar relacionalmente con tu API en Spring Boot
       final response = await http.put(
-        Uri.parse('http://192.168.18.18:8080/api/profiles/update-avatar'),
+        Uri.parse('${ApiConfig.baseUrl}/api/profiles/update-avatar'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'userId': user.id,
@@ -1150,7 +1141,7 @@ class _ProfileTabState extends State<ProfileTab> {
             onPressed: () async {
               final user = Supabase.instance.client.auth.currentUser;
               if (user != null && controller.text.trim().isNotEmpty) {
-                await http.put(Uri.parse('http://192.168.18.18:8080/api/profiles/update-bio'), headers: {'Content-Type': 'application/json'}, body: json.encode({'userId': user.id, 'bio': controller.text.trim()}));
+                await http.put(Uri.parse('${ApiConfig.baseUrl}/api/profiles/update-bio'), headers: {'Content-Type': 'application/json'}, body: json.encode({'userId': user.id, 'bio': controller.text.trim()}));
                 setState(() => _userBio = controller.text.trim());
                 Navigator.pop(context);
               }
@@ -1182,7 +1173,6 @@ class _ProfileTabState extends State<ProfileTab> {
       ),
       body: Column(
         children: [
-          // 👑 TARJETA DE PERFIL CON AVATAR DETECTABLE
           Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(18),
@@ -1201,7 +1191,6 @@ class _ProfileTabState extends State<ProfileTab> {
               children: [
                 Row(
                   children: [
-                    // 🎯 AVATAR INTERACTIVO CON DETECCIÓN DE RED Y FALLBACK
                     GestureDetector(
                       onTap: _isUpdatingAvatar ? null : _actualizarFotoPerfil,
                       child: Stack(
@@ -1217,14 +1206,12 @@ class _ProfileTabState extends State<ProfileTab> {
                                 ? Text(initialLetter, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
                                 : null,
                           ),
-                          // Capa de carga sutil sobre el círculo si se está subiendo el archivo
                           if (_isUpdatingAvatar)
                             CircleAvatar(
                               radius: 32,
                               backgroundColor: Colors.black45,
                               child: const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                             ),
-                          // Icono indicador flotante para denotar que es editable
                           if (!_isUpdatingAvatar)
                             Positioned(
                               bottom: 0,
@@ -1270,7 +1257,6 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
 
-          // CONTADOR DE PROTOTIPOS
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4),
             child: Row(
@@ -1304,7 +1290,6 @@ class _ProfileTabState extends State<ProfileTab> {
           
           const SizedBox(height: 10),
 
-          // GRID DE IMÁGENES DE LA GPU
           Expanded(
             child: _loadingMyFeed 
               ? const Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A)))
@@ -1319,7 +1304,7 @@ class _ProfileTabState extends State<ProfileTab> {
                       childAspectRatio: 1.0
                     ),
                     itemCount: _myPosts.length,
-                    itemBuilder: (context, i) => GestureDetector(
+                    itemBuilder: (context, i) => GestureDetector( // 👈 CAMBIA A itemBuilder
                       onTap: () => _verPublicacionDetallada(_myPosts[i]), 
                       child: Container(
                         decoration: BoxDecoration(
@@ -1370,8 +1355,8 @@ class _LikeButtonWidgetState extends State<LikeButtonWidget> {
 
   Future<void> _fetch() async {
     try {
-      final resC = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/likes/count/${widget.postId}'));
-      final resL = await http.get(Uri.parse('http://192.168.18.18:8080/api/interactions/likes/check?postId=${widget.postId}&userId=${widget.userId}'));
+      final resC = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/interactions/likes/count/${widget.postId}'));
+      final resL = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/interactions/likes/check?postId=${widget.postId}&userId=${widget.userId}'));
       if (mounted) {
         setState(() {
           _count = json.decode(resC.body)['likesCount'] ?? 0;
@@ -1389,7 +1374,7 @@ class _LikeButtonWidgetState extends State<LikeButtonWidget> {
           icon: Icon(_liked ? Icons.favorite : Icons.favorite_border, color: Colors.red), 
           onPressed: () async {
             setState(() { _liked = !_liked; _liked ? _count++ : _count--; });
-            await http.post(Uri.parse('http://192.168.18.18:8080/api/interactions/likes/toggle'), headers: {'Content-Type': 'application/json'}, body: json.encode({'postId': widget.postId, 'userId': widget.userId}));
+            await http.post(Uri.parse('${ApiConfig.baseUrl}/api/interactions/likes/toggle'), headers: {'Content-Type': 'application/json'}, body: json.encode({'postId': widget.postId, 'userId': widget.userId}));
           }
         ),
         Text('$_count', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -1399,7 +1384,7 @@ class _LikeButtonWidgetState extends State<LikeButtonWidget> {
 }
 
 // ==============================================================================
-// 💬 WIDGET COMPONENTE COMENTARIOS RECURSIVOS (LIKES PERSISTENTES Y CONFIGURADOS)
+// 💬 WIDGET COMPONENTE COMENTARIOS RECURSIVOS
 // ==============================================================================
 class CommentSectionWidget extends StatefulWidget {
   final String postId;
@@ -1424,7 +1409,6 @@ class _CommentSectionWidgetState extends State<CommentSectionWidget> {
     try {
       final currentUser = Supabase.instance.client.auth.currentUser;
 
-      // 1. Traemos los comentarios con su perfil relacional
       final response = await Supabase.instance.client
           .from('comments')
           .select('*, profiles(username)')
@@ -1442,7 +1426,6 @@ class _CommentSectionWidgetState extends State<CommentSectionWidget> {
         
         String commentId = c['id'].toString();
 
-        // 2. 🎯 CORREGIDO: Conteo limpio compatible con el SDK sin invocar 'FetchOptions'
         final likesRes = await Supabase.instance.client
             .from('comment_likes')
             .select('id')
@@ -1450,7 +1433,6 @@ class _CommentSectionWidgetState extends State<CommentSectionWidget> {
             
         c['likesCount'] = (likesRes as List).length;
 
-        // 3. Verificar si el usuario actual le dio like
         if (currentUser != null) {
           final userLikeRes = await Supabase.instance.client
               .from('comment_likes')
@@ -1504,7 +1486,7 @@ class _CommentSectionWidgetState extends State<CommentSectionWidget> {
         'parentCommentId': _replyingToCommentId
       };
       final res = await http.post(
-        Uri.parse('http://192.168.18.18:8080/api/interactions/comments'),
+        Uri.parse('${ApiConfig.baseUrl}/api/interactions/comments'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(bodyData)
       );
@@ -1522,7 +1504,7 @@ class _CommentSectionWidgetState extends State<CommentSectionWidget> {
     try {
       _updateLocalLikeState(_commentTree, commentId);
       await http.post(
-        Uri.parse('http://192.168.18.18:8080/api/interactions/comments/likes/toggle'),
+        Uri.parse('${ApiConfig.baseUrl}/api/interactions/comments/likes/toggle'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'commentId': commentId, 'userId': currentUser.id}),
       );
@@ -1609,7 +1591,7 @@ class _CommentSectionWidgetState extends State<CommentSectionWidget> {
 }
 
 // ==============================================================================
-// 🎨 PANTALLA FILTROS (ESTILO INSTAGRAM: CARRUSEL HORIZONTAL E INFO GPU EN CALIENTE)
+// 🎨 PANTALLA FILTROS
 // ==============================================================================
 class FilterScreen extends StatefulWidget {
   final XFile selectedImage;
@@ -1619,7 +1601,6 @@ class FilterScreen extends StatefulWidget {
 }
 
 class _FilterScreenState extends State<FilterScreen> {
-  // 👑 NUEVA VARIABLE DE ESTADO LOCAL
   XFile? _imagenActual;
 
   String? _selectedFilter;
@@ -1631,16 +1612,13 @@ class _FilterScreenState extends State<FilterScreen> {
   String _lastAppliedMask = "AUTO";
   
   final _descController = TextEditingController();
-  final String _ip = '192.168.18.18:8080';
 
   @override
   void initState() {
     super.initState();
-    // Inicializamos la variable mutable con la imagen del constructor
     _imagenActual = widget.selectedImage;
   }
 
-  // 👑 NUEVO MÉTODO PARA CAMBIAR FOTO EN CALIENTE DENTRO DE LA MISMA VENTANA
   Future<void> _cambiarFotoEnCaliente() async {
     final ImagePicker picker = ImagePicker();
     final XFile? nuevaImagen = await picker.pickImage(source: ImageSource.gallery);
@@ -1648,13 +1626,12 @@ class _FilterScreenState extends State<FilterScreen> {
     if (nuevaImagen != null) {
       setState(() {
         _imagenActual = nuevaImagen;
-        _processedImageBytes = null; // Limpia filtros anteriores
-        _selectedFilter = null;      // Resetea el carrusel
+        _processedImageBytes = null; 
+        _selectedFilter = null;      
       });
     }
   }
 
-  // 🎯 CATÁLOGO CORREGIDO: Nombres súper sencillos y fáciles de entender
   final List<Map<String, dynamic>> _filtrosCarrusel = [
     {
       "nombre": "Borroso Gris",
@@ -1713,8 +1690,7 @@ class _FilterScreenState extends State<FilterScreen> {
     });
     
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('http://$_ip/api/metrics/process-image'));
-      // 👑 CAMBIO: Ahora envía siempre el path de la foto actual mutable
+      var request = http.MultipartRequest('POST', Uri.parse('${ApiConfig.baseUrl}/api/metrics/process-image'));
       request.files.add(await http.MultipartFile.fromPath('image', _imagenActual!.path));
       
       request.fields['filter'] = filtroTecnico;
@@ -1749,7 +1725,6 @@ class _FilterScreenState extends State<FilterScreen> {
       ),
       body: Column(
         children: [
-          // 1. 👑 ÁREA DE VISUALIZACIÓN MULTIMEDIA REESTRUCTURADA CON STACK Y BOTÓN FLOTANTE
           Expanded(
             flex: 4,
             child: Container(
@@ -1769,8 +1744,6 @@ class _FilterScreenState extends State<FilterScreen> {
                           ? Image.memory(_processedImageBytes!, fit: BoxFit.contain) 
                           : Image.file(File(_imagenActual!.path), fit: BoxFit.contain),
                     ),
-                    
-                    // 🔄 Botón de cambio de imagen en caliente sobre la esquina de la interfaz
                     Positioned(
                       top: 12,
                       right: 12,
@@ -1787,7 +1760,6 @@ class _FilterScreenState extends State<FilterScreen> {
             ),
           ),
 
-          // INDICADOR DE PROCESAMIENTO EN CALIENTE (CORREGIDO SIN CONST CONFLICTIVO)
           if (_isProcessing)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1808,7 +1780,6 @@ class _FilterScreenState extends State<FilterScreen> {
               ),
             ),
                 
-          // 2. 🔥 SECCIÓN MAESTRA: CARRUSEL HORIZONTAL ESTILO INSTAGRAM
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.0),
             child: Align(alignment: Alignment.centerLeft, child: Text('Efectos Disponibles', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey))),
@@ -1853,7 +1824,6 @@ class _FilterScreenState extends State<FilterScreen> {
             ),
           ),
 
-          // 3. CAPA DE ENTRADA METADATOS Y PUBLICACIÓN
           if (_processedImageBytes != null)
             Expanded(
               flex: 2,
@@ -1890,7 +1860,6 @@ class _FilterScreenState extends State<FilterScreen> {
                                 final nameTimestamp = '${DateTime.now().millisecondsSinceEpoch}.jpg';
                                 
                                 final String originalName = 'orig_$nameTimestamp';
-                                // 👑 CAMBIO: Sube la foto actual cargada al vuelo
                                 await Supabase.instance.client.storage.from('original-images').upload(originalName, File(_imagenActual!.path));
                                 final originalUrl = Supabase.instance.client.storage.from('original-images').getPublicUrl(originalName);
                                 
@@ -1899,7 +1868,7 @@ class _FilterScreenState extends State<FilterScreen> {
                                 final processedUrl = Supabase.instance.client.storage.from('processed-images').getPublicUrl(processedName);
                                 
                                 final postRes = await http.post(
-                                  Uri.parse('http://$_ip/api/posts'),
+                                  Uri.parse('${ApiConfig.baseUrl}/api/posts'),
                                   headers: {'Content-Type': 'application/json'},
                                   body: json.encode({
                                     'userId': user.id,
@@ -1946,7 +1915,7 @@ class _FilterScreenState extends State<FilterScreen> {
           else
             const Expanded(
               flex: 2,
-              child: Center(child: Text('Selcciona un filtro para tu imagen', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))),
+              child: Center(child: Text('Selecciona un filtro para tu imagen', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))),
             )
         ],
       ),

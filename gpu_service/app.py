@@ -4,8 +4,15 @@ import cv2
 import numpy as np
 import os
 import time
+import traceback
 
 app = Flask(__name__)
+
+# ==============================================================================
+# CAPA DE ABSORCIÓN DE ENTORNO DOCKER (.env)
+# ==============================================================================
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
 UPLOAD_FOLDER = "processed_images"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -111,7 +118,7 @@ void kernelColor(const unsigned char* input, unsigned char* output, int width, i
 }
 ''', 'kernelColor')
 
-# 3. KERNEL PREMIUM IDENTIDAD UPS: Don Bosco abajo-izq, Logo arriba-der y doble marco Amarillo/Azul
+# 3. KERNEL PREMIUM IDENTIDAD UPS
 kernelUPSPremium = cp.RawKernel(r'''
 extern "C" __global__ 
 void kernelUPSPremium(const unsigned char* in, unsigned char* out, const unsigned char* logo, const unsigned char* db, 
@@ -135,7 +142,7 @@ void kernelUPSPremium(const unsigned char* in, unsigned char* out, const unsigne
         }
 
         int start_logo_x = w - logo_w - marco_interno - 15;
-        int start_logo_y = marco_interno + 15;                 
+        int start_logo_y = marco_interno + 15;                
         int start_db_x = marco_interno + 15;                   
         int start_db_y = h - db_h - marco_interno - 15;
 
@@ -188,7 +195,7 @@ void kernelPixelado(const unsigned char* in, unsigned char* out, int w, int h, i
 }
 ''', 'kernelPixelado')
 
-# 🚀 5. NUEVO KERNEL: Inversion de Contraste por Mitad Espacial (Bifasico Alto Contraste)
+# 5. KERNEL: Inversion de Contraste por Mitad Espacial
 kernelMitadContraste = cp.RawKernel(r'''
 extern "C" __global__ 
 void kernelMitadContraste(const unsigned char* in, unsigned char* out, int w, int h, int channels) {
@@ -202,16 +209,13 @@ void kernelMitadContraste(const unsigned char* in, unsigned char* out, int w, in
         float g = (float)in[idx+1];
         float r = (float)in[idx+2];
 
-        // Calculo de luminancia estandar de la ITU
         int lum = (int)(0.299f * r + 0.587f * g + 0.114f * b);
         
         if (x < (w / 2)) {
-            // Mitad izquierda: Blanco y Negro de alto contraste plano (Claro -> Blanco, Oscuro -> Negro)
             unsigned char val = (lum > 128) ? 255 : 0;
             for(int c = 0; c < channels; c++) out[idx + c] = val;
         } 
         else {
-            // Mitad derecha: Negativo invertido de alto contraste (Claro -> Negro, Oscuro -> Blanco)
             unsigned char val = (lum > 128) ? 0 : 255;
             for(int c = 0; c < channels; c++) out[idx + c] = val;
         }
@@ -219,7 +223,7 @@ void kernelMitadContraste(const unsigned char* in, unsigned char* out, int w, in
 }
 ''', 'kernelMitadContraste')
 
-# 6. Kernel Maestro CR7 con la firma de parametros int channels declarada correctamente
+# 6. Kernel Maestro CR7
 kernelCR7 = cp.RawKernel(r'''
 extern "C" __global__ 
 void kernelCR7Master(const unsigned char* user_img, const unsigned char* collage, unsigned char* out, 
@@ -292,10 +296,14 @@ def apply_filter():
             elif total_pixeles > 800000:  mask_size = 16
             else:                         mask_size = 8
 
-        print(f"Computo Automatico CUDA: [{filtro}] | Resolucion: {w}x{h}")
+        print(f"Computo Automatico CUDA: [{filtro}] | Resolucion: {w}x{h}", flush=True)
 
-        block_dim = (16, 16)
-        grid_dim = (int((w + 15) // 16), int((h + 15) // 16))
+        # Dimensiones tridimensionales explicitas para hilos y bloques de hardware
+        block_dim = (16, 16, 1)
+        grid_x = int((w + 15) / 16)
+        grid_y = int((h + 15) / 16)
+        grid_dim = (grid_x, grid_y, 1)
+        
         start_time = time.time()
         
         if filtro in ["CONVOLUCION_MANUAL", "HIGH_BOOST"]:
@@ -349,7 +357,6 @@ def apply_filter():
                 pixelado_kernel(grid_dim, block_dim, (img_gpu, res_gpu, w, h, c, mask_size))
                 
             elif filtro == "GRAYSCALE_GPU":
-                # 🛠️ ASIGNACIÓN MODIFICADA: Ahora invoca al nuevo kernel bifásico por cuadrante
                 kernelMitadContraste(grid_dim, block_dim, (img_gpu, res_gpu, w, h, c))
                 
             elif filtro == "CR7_FRAME":
@@ -396,7 +403,8 @@ def apply_filter():
         }), 200
 
     except Exception as e:
-        print(f"Error critico en cluster CUDA: {str(e)}")
+        print(f"🚨 ERROR CRÍTICO EN KERNEL CUDA: {str(e)}", flush=True)
+        traceback.print_exc()
         return jsonify({"status": "FAILED", "error": str(e)}), 500
 
 @app.route('/api/pycuda/download', methods=['GET'])
@@ -407,4 +415,4 @@ def download_file():
     return jsonify({"error": "No encontrado"}), 404
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

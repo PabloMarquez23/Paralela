@@ -17,6 +17,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/metrics")
@@ -29,15 +30,25 @@ public class GpuMetricController {
     @Autowired
     private DatabaseClient databaseClient; 
 
-    private final WebClient webClient = WebClient.builder()
-            .baseUrl("http://localhost:5000") // Flask
-            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
-            .build();
+    private final WebClient webClient;
+
+    // 🎯 CONSTRUCTOR ATÓMICO: Conexión directa y fija por red interna de Docker
+    public GpuMetricController() {
+        String dockerUrl = "http://flaskservice:5000";
+        System.out.println("🚀 Clúster Activo: Enlazando WebClient a la GPU en: " + dockerUrl);
+        
+        this.webClient = WebClient.builder()
+                .baseUrl(dockerUrl) 
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+                .build();
+    }
 
     @GetMapping("/history")
     public Flux<GpuMetric> getMetricsHistory() {
         return metricService.getAllMetrics();
     }
+
+    // ... Tu código de abajo (/process-image) se queda exactamente igual ...
 
     @PostMapping(value = "/process-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Map<String, Object>> processImage(
